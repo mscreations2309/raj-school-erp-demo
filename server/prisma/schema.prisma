@@ -161,6 +161,47 @@ model User {
   @@index([email])
 }
 
+// Recycle Bin — nothing is ever erased. A delete stores a full copy of the record and everything linked
+// to it, so it can be restored exactly. Removing from a bin escalates the entry to the next manager:
+// staff → PRINCIPAL → SCHOOL_ADMIN → SUPER_ADMIN → ARCHIVED (kept forever, still restorable).
+model RecycleBinEntry {
+  id            String   @id @default(cuid())
+  schoolId      String?
+  entityType    String
+  entityId      String?
+  label         String
+  summary       String   @default("{}") // JSON: linked record counts per type
+  payload       String // JSON snapshot: { records: [{ model, data }], relinks: [...] }
+  reason        String
+  deletedById   String?
+  deletedByName String
+  deletedByRole String
+  deletedByRank Int
+  deletedBy     String   @default("{}") // JSON: employee details (name, role, emp ID, designation, phone, email)
+  holderRole    String // whose bin it is in now
+  holderUserId  String? // set while it is in the deleter's own bin
+  status        String   @default("IN_BIN") // IN_BIN | ARCHIVED | RESTORED
+  history       String   @default("[]") // JSON: every step with who / when / note
+  deletedAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([schoolId, status])
+  @@index([holderRole, status])
+}
+
+// Uploaded files stored in the database (persistent on hosts with ephemeral disks, e.g. Render free)
+model StoredFile {
+  id        String   @id @default(cuid())
+  schoolId  String?
+  name      String
+  mime      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+}
+
 // Per-tenant running number sequences (receipts, invoices, admission no …)
 model Counter {
   id       String @id @default(cuid())

@@ -5,9 +5,10 @@ import { prisma, nextNumber, pad, contains } from '../lib/prisma.js';
 import { ah, notFound, badRequest, paging, parseJSON } from '../lib/http.js';
 import { authorize, requireModule, ADMINS, STAFF_ROLES } from '../lib/auth.js';
 import { sanitize, assertSameTenant } from '../lib/crud.js';
-import { upload, fileUrl } from '../lib/upload.js';
+import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
 import { toCSV } from '../lib/csv.js';
+import { moveToBin } from '../lib/recycle.js';
 
 const r = Router();
 r.use(requireModule('students'));
@@ -152,10 +153,10 @@ r.put('/:id', authorize(WRITE), ah(async (req, res) => {
 r.delete('/:id', authorize(ADMINS), ah(async (req, res) => {
   const existing = await prisma.student.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
   if (!existing) throw notFound();
-  if (req.query.hard === '1') await prisma.student.delete({ where: { id: existing.id } });
-  else await prisma.student.update({ where: { id: existing.id }, data: { status: 'LEFT' } });
-  audit(req, 'DELETE', 'Student', existing.id, { hard: req.query.hard === '1' });
-  res.json({ ok: true });
+  // Never hard delete: student + fees, attendance, marks, documents go to the Recycle Bin; logins are locked
+  const entry = await moveToBin(req, { roots: [{ model: 'Student', ids: [existing.id] }], reason: req.body?.reason });
+  audit(req, 'MOVE_TO_RECYCLE_BIN', 'Student', existing.id, { entry: entry.id });
+  res.json({ ok: true, recycleBinEntryId: entry.id });
 }));
 
 r.post('/:id/parent-login', authorize(WRITE), ah(async (req, res) => {
@@ -199,16 +200,17 @@ r.post('/promote', authorize(ADMINS), ah(async (req, res) => {
 r.post('/:id/documents', authorize(WRITE), upload.array('files', 6), ah(async (req, res) => {
   const s = await prisma.student.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
   if (!s) throw notFound();
-  const docs = await prisma.$transaction(
-    (req.files || []).map((f) =>
-      prisma.studentDocument.create({ data: { schoolId: req.schoolId, studentId: s.id, name: req.body.name || f.originalname, url: fileUrl(f) } }),
-    ),
-  );
+  const docs = [];
+  for (const f of req.files || []) {
+    docs.push(await prisma.studentDocument.create({ data: { schoolId: req.schoolId, studentId: s.id, name: req.body.name || f.originalname, url: await saveUpload(req, f) } }));
+  }
   res.status(201).json(docs);
 }));
 
 r.delete('/:id/documents/:docId', authorize(WRITE), ah(async (req, res) => {
-  await prisma.studentDocument.deleteMany({ where: { id: req.params.docId, studentId: req.params.id, schoolId: req.schoolId } });
+  const doc = await prisma.studentDocument.findFirst({ where: { id: req.params.docId, studentId: req.params.id, schoolId: req.schoolId } });
+  if (!doc) throw notFound();
+  await moveToBin(req, { roots: [{ model: 'StudentDocument', ids: [doc.id] }], reason: req.body?.reason });
   res.json({ ok: true });
 }));
 

@@ -8,6 +8,7 @@ import { authorize, requireModule, ADMINS, STAFF_ROLES, publicUser } from '../li
 import { sanitize } from '../lib/crud.js';
 import { audit } from '../lib/audit.js';
 import { toCSV } from '../lib/csv.js';
+import { moveToBin } from '../lib/recycle.js';
 
 const r = Router();
 
@@ -82,10 +83,11 @@ staff.put('/:id', authorize(ADMINS), ah(async (req, res) => {
 staff.delete('/:id', authorize(ADMINS), ah(async (req, res) => {
   const existing = await prisma.staff.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
   if (!existing) throw notFound();
-  await prisma.staff.update({ where: { id: existing.id }, data: { status: 'RESIGNED' } });
-  if (existing.userId) await prisma.user.update({ where: { id: existing.userId }, data: { isActive: false } });
-  audit(req, 'DELETE', 'Staff', existing.id);
-  res.json({ ok: true });
+  if (existing.userId && existing.userId === req.user.id) throw badRequest('You cannot delete your own staff record');
+  // Never hard delete: staff + payslips, attendance, leaves go to the Recycle Bin; their ERP login is locked
+  const entry = await moveToBin(req, { roots: [{ model: 'Staff', ids: [existing.id] }], reason: req.body?.reason });
+  audit(req, 'MOVE_TO_RECYCLE_BIN', 'Staff', existing.id, { entry: entry.id });
+  res.json({ ok: true, recycleBinEntryId: entry.id });
 }));
 
 async function createLogin(req, s, role, password) {
@@ -145,6 +147,16 @@ users.put('/:id', ah(async (req, res) => {
   const updated = await prisma.user.update({ where: { id: u.id }, data });
   audit(req, 'UPDATE', 'User', u.id, Object.keys(d));
   res.json(publicUser(updated));
+}));
+users.delete('/:id', ah(async (req, res) => {
+  const u = await prisma.user.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
+  if (!u) throw notFound();
+  if (u.id === req.user.id) throw badRequest('You cannot delete your own login');
+  if (u.role === 'SCHOOL_ADMIN' && (await prisma.user.count({ where: { schoolId: req.schoolId, role: 'SCHOOL_ADMIN', isActive: true } })) <= 1) throw badRequest('At least one School Admin login must remain');
+  // The login moves to the Recycle Bin, so the person can no longer sign in (restore brings it back)
+  const entry = await moveToBin(req, { roots: [{ model: 'User', ids: [u.id] }], reason: req.body?.reason });
+  audit(req, 'MOVE_TO_RECYCLE_BIN', 'User', u.id, { entry: entry.id });
+  res.json({ ok: true, recycleBinEntryId: entry.id });
 }));
 r.use('/users', users);
 

@@ -3,6 +3,7 @@ import { prisma, Prisma, contains } from './prisma.js';
 import { ah, badRequest, notFound, paging } from './http.js';
 import { authorize, requireModule, ADMINS, STAFF_ROLES } from './auth.js';
 import { audit } from './audit.js';
+import { moveToBin } from './recycle.js';
 
 const MODELS = Object.fromEntries(Prisma.dmmf.datamodel.models.map((m) => [m.name, m]));
 const delegate = (model) => prisma[model[0].toLowerCase() + model.slice(1)];
@@ -212,9 +213,10 @@ export function crudRouter(model, opts = {}) {
       const existing = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId) } });
       if (!existing) throw notFound();
       if (beforeDelete) await beforeDelete(existing, req);
-      await db.delete({ where: { id: existing.id } });
-      audit(req, 'DELETE', model, existing.id);
-      res.json({ ok: true });
+      // Never hard delete: move to the Recycle Bin (restorable) with a mandatory reason
+      const entry = await moveToBin(req, { roots: [{ model, ids: [existing.id] }], reason: req.body?.reason });
+      audit(req, 'MOVE_TO_RECYCLE_BIN', model, existing.id, { entry: entry.id, reason: req.body?.reason });
+      res.json({ ok: true, recycleBinEntryId: entry.id });
     }),
   );
 

@@ -259,7 +259,7 @@ export default function SiteLayout() {
     <div className="min-h-screen overflow-x-clip">
       {site.demo && (
         <div className="relative z-[45] bg-gradient-to-r from-brand-700 via-brand-600 to-gold-600 px-4 py-1.5 text-center text-xs font-semibold text-white">
-          ✨ Demo website by <b>RnY Groups</b> — redesign proposal for {site.school.name}. Sample data resets daily. <a href="/login" className="underline underline-offset-2">Try the ERP →</a>
+          ✨ Demo website by <b>RnY Groups</b> — redesign proposal for {site.school.name}. Sample data shown. <a href="/login" className="underline underline-offset-2">Try the ERP →</a>
         </div>
       )}
       <Preloader logo={site.school.logoUrl || '/favicon.png'} />

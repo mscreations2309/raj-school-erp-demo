@@ -94,7 +94,7 @@ const login = async (email, password) => (await call('POST', '/auth/login', { bo
   await call('GET', '/search?q=Pandey', { token: admin });
   for (const p of ['banners', 'leaders', 'gallery', 'stats', 'facilities', 'testimonials', 'contact-persons', 'disclosures', 'board-results', 'site-content', 'tcs']) await call('GET', `/${p}`, { token: admin });
   const ev = await call('POST', '/events', { token: admin, body: { title: 'Smoke Event', type: 'EVENT', startDate: '2026-12-01' }, expect: 201 });
-  await call('DELETE', `/events/${ev.id}`, { token: admin });
+  await call('DELETE', `/events/${ev.id}`, { token: admin, body: { reason: 'smoke test cleanup' } });
 
   // Security: tenant isolation
   const sunrise = await login('admin@sunrise.example', 'Admin@123');
@@ -130,7 +130,7 @@ const login = async (email, password) => (await call('POST', '/auth/login', { bo
   await call('GET', '/dashboard', { token: sa, headers: { 'x-school-id': me.school.id } });
 
   // Cleanup the smoke student
-  await call('DELETE', `/students/${created.student.id}?hard=1`, { token: admin });
+  await call('DELETE', `/students/${created.student.id}`, { token: admin, body: { reason: 'smoke test cleanup' } });
 
   console.log(`\n${pass} passed, ${fail} failed`);
   if (failures.length) console.log(failures.join('\n'));

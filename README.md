@@ -38,6 +38,14 @@ The login page also has one-click demo buttons for every role.
 
 **SaaS (multi-tenant):** every record is isolated by `schoolId`; RnY super-admin console to onboard schools in one click (auto-provisions classes, subjects, fee heads, website), plans with module gating (Starter / Growth / Enterprise), subscriptions & invoices, suspend/reactivate, "open ERP as school", per-school websites via subdomain, custom domain or `/?school=<slug>`.
 
+## Data safety — nothing is ever erased
+- **Every Delete = Move to Recycle Bin** with a mandatory reason. The record *and everything linked to it* (e.g. a student's fees, attendance, marks, documents) is stored as a complete copy with the employee's name, role, employee ID, date/time and reason.
+- **Restore** puts everything back exactly (same IDs, same links) and unlocks any logins.
+- **Remove from my bin** never erases: it moves the item to the next manager's bin — Teacher/Accountant/Receptionist/Librarian → Principal → School Admin → RnY Super Admin → Archive (kept forever, still restorable). Every step is kept in the item's history.
+- **Visibility:** the person who deleted + everyone above them.
+- **Deleted people can't log in:** deleting a staff member, student (and parent with no other child) or a login blocks sign-in immediately; restoring unlocks it.
+- **Remove all demo data:** School Admin → Settings → "Remove all demo data" (button only — never automatic). It goes to the Recycle Bin as one entry and can be restored in one click.
+
 ## Tech
 - **API:** Node.js, Express, Prisma ORM, JWT auth, role-based access, Zod validation, Multer uploads, audit log — `server/`
 - **Web:** React 18, Vite, Tailwind CSS, Framer Motion, Recharts, i18next — `web/`

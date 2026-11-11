@@ -5,7 +5,8 @@ import { Plus, Pencil, Trash2, Search, Download, Upload, Loader2, RefreshCw } fr
 import { api, errMsg, uploadFile } from '../../lib/api';
 import { fmtDate, money, pretty } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
-import { PageHeader, Card, Modal, Confirm, Pagination, Spinner, Empty, Badge, Field, useFetch, ErrorBox } from './ui';
+import { PageHeader, Card, Modal, DeleteDialog, Pagination, Spinner, Empty, Badge, Field, useFetch, ErrorBox } from './ui';
+import { labelOf } from './label';
 
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
 
@@ -138,9 +139,9 @@ export default function ResourcePage({
     setEditing(null);
     reload();
   };
-  const remove = async () => {
+  const remove = async (reason) => {
     setBusy(true);
-    try { await api.delete(`${endpoint}/${deleting.id}`); toast.success('Deleted'); setDeleting(null); reload(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+    try { await api.delete(`${endpoint}/${deleting.id}`, { data: { reason } }); toast.success('Moved to Recycle Bin — restore anytime'); setDeleting(null); reload(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
   const exportCsv = () => {
     const rows = data?.items || [];
@@ -201,7 +202,7 @@ export default function ResourcePage({
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? `Edit ${title.replace(/s$/, '')}` : `Add ${title.replace(/s$/, '')}`} size="lg">
         {editing && <RecordForm fields={fields} initial={editing} onSubmit={save} onCancel={() => setEditing(null)} />}
       </Modal>
-      <Confirm open={!!deleting} onClose={() => setDeleting(null)} onConfirm={remove} busy={busy} text="This record will be permanently deleted. This action cannot be undone." />
+      <DeleteDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={remove} busy={busy} what={deleting ? labelOf(deleting) : ''} />
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function Staff() {
 
 export function Users() {
   return (
-    <ResourcePage title="User Logins" subtitle="Everyone who can sign in to the ERP for this school" icon={UserCog} endpoint="/users" writeRoles={ADMIN} canDelete={false}
+    <ResourcePage title="User Logins" subtitle="Everyone who can sign in to the ERP. Deleting a login blocks sign-in immediately (restorable from Recycle Bin)." icon={UserCog} endpoint="/users" writeRoles={ADMIN}
       filters={[{ name: 'role', label: 'Role', options: ['SCHOOL_ADMIN', 'PRINCIPAL', 'TEACHER', 'ACCOUNTANT', 'RECEPTIONIST', 'LIBRARIAN', 'PARENT', 'STUDENT'] }]}
       columns={[{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'phone', label: 'Mobile' }, { key: 'role', label: 'Role', type: 'status' }, { key: 'lastLoginAt', label: 'Last login', type: 'date' }, { key: 'isActive', label: 'Active', type: 'bool' }]}
       fields={[{ name: 'name', label: 'Name', required: true }, { name: 'email', label: 'Email', required: true }, { name: 'phone', label: 'Mobile' }, { name: 'role', label: 'Role', type: 'select', options: LOGIN_ROLES, required: true }, { name: 'password', label: 'Password (set / reset)', inputType: 'password' }, { name: 'isActive', label: 'Active', type: 'bool', default: true }]} />

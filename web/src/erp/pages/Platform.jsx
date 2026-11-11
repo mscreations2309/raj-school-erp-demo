@@ -6,7 +6,7 @@ import { School, Building2, Users, IndianRupee, Plus, LogIn, Loader2, Receipt, C
 import { api, errMsg } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { compactMoney, fmtDate, money, num, pretty } from '../../lib/format';
-import { PageHeader, Card, Spinner, Empty, useFetch, Badge, Stat, Modal, Field, Pagination, ErrorBox } from '../components/ui';
+import { PageHeader, Card, Spinner, Empty, useFetch, Badge, Stat, Modal, Field, Pagination, ErrorBox, DeleteDialog } from '../components/ui';
 
 export function PlatformHome() {
   const { data: d, loading } = useFetch('/platform/stats');
@@ -111,6 +111,7 @@ export function PlatformSchoolDetail() {
   const { data: plans } = useFetch('/platform/plans');
   const [sub, setSub] = useState(null);
   const [pwd, setPwd] = useState('');
+  const [del, setDel] = useState(false);
   if (error) return <ErrorBox error={error} />;
   if (loading || !s) return <Spinner />;
   const setStatus = async (status) => { try { await api.put(`/platform/schools/${id}`, { status }); toast.success(`School ${status.toLowerCase()}`); reload(); } catch (e) { toast.error(errMsg(e)); } };
@@ -121,6 +122,7 @@ export function PlatformSchoolDetail() {
     <div className="space-y-6">
       <PageHeader title={s.name} subtitle={`${s.slug} • ${s.city || ''} • ${s.board}`} icon={School} actions={<>
         <button className="btn-outline" onClick={async () => { await actAsSchool(s.id); nav('/app'); }}><LogIn size={16} /> Open ERP as admin</button>
+        <button className="btn-outline text-rose-600" onClick={() => setDel(true)}>Delete school</button>
         {s.status === 'SUSPENDED' ? <button className="btn-success" onClick={() => setStatus('ACTIVE')}><Play size={16} /> Reactivate</button> : <button className="btn-danger" onClick={() => setStatus('SUSPENDED')}><Ban size={16} /> Suspend</button>}
       </>} />
       <div className="grid gap-4 sm:grid-cols-4">
@@ -144,6 +146,7 @@ export function PlatformSchoolDetail() {
           <div className="space-y-2 text-sm"><div>Public site: <a className="text-brand-600 underline" href={`/?school=${s.slug}`} target="_blank" rel="noreferrer">/?school={s.slug}</a></div><div>Subdomain: <b>{s.slug}.rnyedusuite.in</b></div><div>Custom domain: <b>{s.customDomain || 'not set'}</b></div></div>
         </Card>
       </div>
+      <DeleteDialog open={del} onClose={() => setDel(false)} what={`${s.name} — the school is deactivated (all data kept, all its logins blocked)`} extraConfirm={s.slug} onConfirm={async (reason) => { try { await api.delete(`/platform/schools/${id}`, { data: { reason, confirm: s.slug } }); toast.success('School moved to Recycle Bin'); nav('/platform/schools'); } catch (e) { toast.error(errMsg(e)); } }} />
       <Modal open={!!sub} onClose={() => setSub(null)} title="Create / renew subscription" size="sm" footer={<><button className="btn-outline" onClick={() => setSub(null)}>Cancel</button><button className="btn-primary" onClick={subscribe}>Create & invoice</button></>}>
         {sub && <div className="space-y-4"><Field label="Plan"><select className="input" value={sub.planId} onChange={(e) => setSub({ ...sub, planId: e.target.value })}>{(plans?.items || []).map((p) => <option key={p.id} value={p.id}>{p.name} — {money(p.priceMonthly)}/mo • {money(p.priceYearly)}/yr</option>)}</select></Field><Field label="Billing"><select className="input" value={sub.billingCycle} onChange={(e) => setSub({ ...sub, billingCycle: e.target.value })}><option value="YEARLY">Yearly</option><option value="MONTHLY">Monthly</option></select></Field></div>}
       </Modal>

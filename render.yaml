@@ -24,6 +24,10 @@ services:
         value: raj-english-school
       - key: DEMO_MODE
         value: "true"
+      - key: SEED_MODE
+        value: demo
+      - key: FILE_STORAGE
+        value: db
       - key: NODE_VERSION
         value: "22"
       - key: CORS_ORIGIN

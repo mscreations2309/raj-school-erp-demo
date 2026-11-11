@@ -5,7 +5,7 @@ import { Users, Plus, Download, Search, Pencil, KeyRound, FileText, Upload, Tras
 import { api, errMsg, download } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { fmtDate, money, fullName, pretty, toInputDate } from '../../lib/format';
-import { PageHeader, Card, Spinner, Empty, Badge, Pagination, useFetch, Modal, Field, Tabs, Avatar, Confirm, ErrorBox, Stat } from '../components/ui';
+import { PageHeader, Card, Spinner, Empty, Badge, Pagination, useFetch, Modal, Field, Tabs, Avatar, Confirm, ErrorBox, Stat, DeleteDialog } from '../components/ui';
 
 export function useSections() {
   const { data } = useFetch('/sections', { all: 1 });
@@ -159,6 +159,8 @@ export function StudentProfile() {
   const [tc, setTc] = useState({ reason: '', conduct: 'Good' });
   const [login, setLogin] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [delDoc, setDelDoc] = useState(null);
+  const [delStudent, setDelStudent] = useState(false);
   if (error) return <ErrorBox error={error} />;
   if (loading || !s) return <Spinner />;
   const canWrite = is('SCHOOL_ADMIN', 'PRINCIPAL', 'RECEPTIONIST');
@@ -192,6 +194,7 @@ export function StudentProfile() {
             {is('SCHOOL_ADMIN', 'PRINCIPAL', 'ACCOUNTANT', 'RECEPTIONIST') && <Link to={`/app/fees/collect?studentId=${id}`} className="btn-primary"><Wallet size={15} /> Collect fee</Link>}
             {canWrite && <button className="btn-outline" onClick={resetLogin}><KeyRound size={15} /> Parent login</button>}
             {canWrite && s.status === 'ACTIVE' && <button className="btn-outline text-rose-600" onClick={() => setTcOpen(true)}><FileText size={15} /> Issue TC</button>}
+            {is('SCHOOL_ADMIN', 'PRINCIPAL') && <button className="btn-outline text-rose-600" onClick={() => setDelStudent(true)}><Trash2 size={15} /> Delete</button>}
           </div>
         </div>
       </div>
@@ -252,7 +255,7 @@ export function StudentProfile() {
         <Card title="Documents" actions={canWrite && <label className="btn-primary btn-sm cursor-pointer"><Upload size={14} /> Upload<input type="file" multiple className="hidden" onChange={uploadDoc} /></label>}>
           {!s.documents.length ? <Empty text="No documents uploaded" /> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{s.documents.map((d) => (
             <div key={d.id} className="flex items-center justify-between rounded-xl border p-3"><a href={d.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium hover:text-brand-600"><FileText size={16} /> {d.name}</a>
-              {canWrite && <button className="text-slate-400 hover:text-rose-600" onClick={async () => { await api.delete(`/students/${id}/documents/${d.id}`); reload(); }}><Trash2 size={15} /></button>}</div>
+              {canWrite && <button className="text-slate-400 hover:text-rose-600" onClick={() => setDelDoc(d)}><Trash2 size={15} /></button>}</div>
           ))}</div>}
         </Card>
       )}
@@ -269,6 +272,8 @@ export function StudentProfile() {
       <Modal open={tcOpen} onClose={() => setTcOpen(false)} title="Issue Transfer Certificate" size="sm" footer={<><button className="btn-outline" onClick={() => setTcOpen(false)}>Cancel</button><button className="btn-danger" disabled={busy} onClick={issueTc}>Issue TC</button></>}>
         <div className="space-y-4"><Field label="Reason for leaving"><input className="input" value={tc.reason} onChange={(e) => setTc({ ...tc, reason: e.target.value })} /></Field><Field label="Conduct"><select className="input" value={tc.conduct} onChange={(e) => setTc({ ...tc, conduct: e.target.value })}>{['Excellent', 'Very Good', 'Good', 'Satisfactory'].map((c) => <option key={c}>{c}</option>)}</select></Field><p className="text-xs text-slate-500">Student status becomes "TC Issued". The TC becomes verifiable on the public website.</p></div>
       </Modal>
+      <DeleteDialog open={!!delDoc} onClose={() => setDelDoc(null)} what={`Document "${delDoc?.name}"`} busy={busy} onConfirm={async (reason) => { setBusy(true); try { await api.delete(`/students/${id}/documents/${delDoc.id}`, { data: { reason } }); toast.success('Moved to Recycle Bin'); setDelDoc(null); reload(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); } }} />
+      <DeleteDialog open={delStudent} onClose={() => setDelStudent(false)} what={`${fullName(s)} (${s.admissionNo}) with all fees, attendance, marks and documents — student & parent logins will be blocked`} busy={busy} onConfirm={async (reason) => { setBusy(true); try { await api.delete(`/students/${id}`, { data: { reason } }); toast.success('Student moved to Recycle Bin'); nav('/app/students'); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); } }} />
       <Modal open={!!login} onClose={() => setLogin(null)} title="Parent portal login" size="sm">
         {login && <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Login (mobile): <b>{login.login}</b><br />Password: <b>{login.password}</b><p className="mt-2 text-xs">Share these with the parent. They can change the password after signing in.</p></div>}
       </Modal>

@@ -6,8 +6,10 @@ import { prisma, nextNumber, pad, contains } from '../lib/prisma.js';
 import { ah, notFound, badRequest, paging, parseJSON, dayKey } from '../lib/http.js';
 import { authorize, requireModule, ADMINS, STAFF_ROLES, ALL_SCHOOL_ROLES } from '../lib/auth.js';
 import { sanitize } from '../lib/crud.js';
-import { upload, fileUrl } from '../lib/upload.js';
+import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
+import { demoDataRoots } from '../lib/demo.js';
+import { moveToBin } from '../lib/recycle.js';
 
 const r = Router();
 const FRONT = [...ADMINS, 'RECEPTIONIST'];
@@ -42,7 +44,9 @@ apps.put('/:id', ah(async (req, res) => {
   res.json(updated);
 }));
 apps.delete('/:id', authorize(ADMINS), ah(async (req, res) => {
-  await prisma.admissionApplication.deleteMany({ where: { id: req.params.id, schoolId: req.schoolId } });
+  const a = await prisma.admissionApplication.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
+  if (!a) throw notFound();
+  await moveToBin(req, { roots: [{ model: 'AdmissionApplication', ids: [a.id] }], reason: req.body?.reason });
   res.json({ ok: true });
 }));
 apps.post('/:id/enroll', ah(async (req, res) => {
@@ -182,8 +186,19 @@ tt.put('/', authorize(ADMINS), ah(async (req, res) => {
     if (clash) throw badRequest(`${clash.teacher.firstName} is already teaching ${clash.section.grade.name}-${clash.section.name} on day ${s.day}, period ${s.period}`);
   }
   await prisma.$transaction([
-    prisma.timetableSlot.deleteMany({ where: { sectionId: d.sectionId } }),
-    ...d.slots.map((s) => prisma.timetableSlot.create({ data: { ...s, subjectId: s.subjectId || null, teacherId: s.teacherId || null, schoolId: req.schoolId, sectionId: d.sectionId } })),
+    // No deletes: periods not in the new timetable are blanked; the rest are updated or added
+    prisma.timetableSlot.updateMany({
+      where: { sectionId: d.sectionId, NOT: { OR: d.slots.map((s) => ({ day: s.day, period: s.period })) } },
+      data: { subjectId: null, teacherId: null },
+    }),
+    ...d.slots.map((s) => {
+      const data = { startTime: s.startTime, endTime: s.endTime, subjectId: s.subjectId || null, teacherId: s.teacherId || null };
+      return prisma.timetableSlot.upsert({
+        where: { sectionId_day_period: { sectionId: d.sectionId, day: s.day, period: s.period } },
+        create: { ...data, day: s.day, period: s.period, schoolId: req.schoolId, sectionId: d.sectionId },
+        update: data,
+      });
+    }),
   ]);
   audit(req, 'SAVE_TIMETABLE', 'Section', d.sectionId);
   res.json({ saved: d.slots.length });
@@ -296,6 +311,29 @@ r.put('/settings', authorize(ADMINS), ah(async (req, res) => {
   audit(req, 'UPDATE_SETTINGS', 'School', s.id);
   res.json({ ...s, settings: parseJSON(s.settings, {}) });
 }));
+// ── "Remove all demo data" button: preview counts, then delete on explicit confirmation
+const dataCounts = async (schoolId) => {
+  const w = { where: { schoolId } };
+  const [students, staff, parents, invoices, payments, attendance, marks, exams, notices, events, enquiries, applications, expenses, payslips, books, vehicles, hostels, inventory] = await Promise.all([
+    prisma.student.count(w), prisma.staff.count(w), prisma.user.count({ where: { schoolId, role: { in: ['PARENT', 'STUDENT'] } } }),
+    prisma.feeInvoice.count(w), prisma.feePayment.count(w), prisma.studentAttendance.count(w), prisma.mark.count(w), prisma.exam.count(w),
+    prisma.notice.count(w), prisma.event.count(w), prisma.enquiry.count(w), prisma.admissionApplication.count(w), prisma.expense.count(w),
+    prisma.payslip.count(w), prisma.book.count(w), prisma.vehicle.count(w), prisma.hostel.count(w), prisma.inventoryItem.count(w),
+  ]);
+  return { students, staff, parents, invoices, payments, attendance, marks, exams, notices, events, enquiries, applications, expenses, payslips, books, vehicles, hostels, inventory };
+};
+r.get('/settings/data-summary', authorize('SCHOOL_ADMIN'), ah(async (req, res) => res.json(await dataCounts(req.schoolId))));
+r.post('/settings/clear-demo-data', authorize('SCHOOL_ADMIN'), ah(async (req, res) => {
+  if (req.body?.confirm !== 'DELETE') throw badRequest('Type DELETE to confirm');
+  const before = await dataCounts(req.schoolId);
+  const roots = await demoDataRoots(req.schoolId, req.user.id);
+  if (!roots.length) throw badRequest('There is no demo data to remove');
+  // Everything goes to the Recycle Bin as ONE entry, restorable in one click
+  const entry = await moveToBin(req, { roots, entityType: 'DemoData', label: `Demo data of ${req.school.name} (${before.students} students, ${before.staff} staff, ${before.invoices} invoices...)`, reason: req.body?.reason });
+  audit(req, 'MOVE_TO_RECYCLE_BIN', 'DemoData', req.schoolId, before);
+  res.json({ ok: true, removed: before, recycleBinEntryId: entry.id });
+}));
+
 r.get('/audit', authorize(ADMINS), ah(async (req, res) => {
   const { skip, take, page, pageSize } = paging(req.query);
   const where = { schoolId: req.schoolId };
@@ -307,7 +345,7 @@ r.get('/audit', authorize(ADMINS), ah(async (req, res) => {
 // Generic file upload (images / pdf) → returns public URL
 r.post('/upload', authorize(STAFF_ROLES), upload.single('file'), ah(async (req, res) => {
   if (!req.file) throw badRequest('No file uploaded');
-  res.status(201).json({ url: fileUrl(req.file), name: req.file.originalname, size: req.file.size });
+  res.status(201).json({ url: await saveUpload(req, req.file), name: req.file.originalname, size: req.file.size });
 }));
 
 // Global search across students, staff, invoices

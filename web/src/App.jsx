@@ -29,6 +29,7 @@ const H = () => import('./erp/pages/Hr');
 const O = () => import('./erp/pages/Ops');
 const P = () => import('./erp/pages/Portal');
 const PL = () => import('./erp/pages/Platform');
+const RecycleBin = lazy(() => import('./erp/pages/RecycleBin'));
 
 const pages = {
   StudentsList: L(S, 'StudentsList'), StudentForm: L(S, 'StudentForm'), StudentProfile: L(S, 'StudentProfile'), PromoteStudents: L(S, 'PromoteStudents'),
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="cms/results" element={<p.CmsResults />} />
           <Route path="settings" element={<p.Settings />} />
           <Route path="audit" element={<p.AuditLog />} />
+          <Route path="recycle-bin" element={<RecycleBin />} />
           <Route path="*" element={<div className="py-20 text-center text-slate-500">Page not found</div>} />
         </Route>
 
@@ -147,6 +149,7 @@ export default function App() {
           <Route path="plans" element={<p.PlatformPlans />} />
           <Route path="billing" element={<p.PlatformBilling />} />
           <Route path="audit" element={<p.AuditLog platform />} />
+          <Route path="recycle-bin" element={<RecycleBin platform />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

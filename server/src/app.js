@@ -21,6 +21,7 @@ import examRoutes from './routes/exams.js';
 import feeRoutes from './routes/fees.js';
 import opsRoutes from './routes/ops.js';
 import portalRoutes from './routes/portal.js';
+import { recycleRouter } from './routes/recycle.js';
 
 export function createApp() {
   const app = express();
@@ -39,8 +40,21 @@ export function createApp() {
     res.json({ ok: true, service: 'RnY EduSuite API', time: new Date().toISOString() });
   });
 
+  // Uploaded files stored in the database (FILE_STORAGE=db)
+  app.get('/api/files/:id', async (req, res, next) => {
+    try {
+      const f = await prisma.storedFile.findUnique({ where: { id: req.params.id.replace(/\.[a-z0-9]+$/i, '') } });
+      if (!f) return res.status(404).json({ error: 'File not found' });
+      res.setHeader('Content-Type', f.mime);
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(f.name)}"`);
+      res.send(Buffer.from(f.data));
+    } catch (e) { next(e); }
+  });
+
   app.use('/api/auth', authRoutes);
   app.use('/api/public', publicRoutes);
+  app.use('/api/platform/recycle-bin', authenticate, recycleRouter());
   app.use('/api/platform', authenticate, platformRoutes);
 
   // Everything below is tenant-scoped and requires login
@@ -51,6 +65,7 @@ export function createApp() {
   tenant.use('/assessment', examRoutes);
   tenant.use('/fees', feeRoutes);
   tenant.use('/portal', portalRoutes);
+  tenant.use('/recycle-bin', recycleRouter());
   tenant.use('/', hrRoutes);
   tenant.use('/', opsRoutes);
   tenant.use('/', resourceRoutes);

@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { prisma, nextNumber, pad, contains } from '../lib/prisma.js';
 import { ah, HttpError, notFound, badRequest, parseJSON } from '../lib/http.js';
-import { upload, fileUrl } from '../lib/upload.js';
+import { upload, saveUpload } from '../lib/upload.js';
 import { isDemo } from '../lib/demo.js';
 
 const r = Router();
@@ -146,7 +146,8 @@ r.post(
     const s = parseJSON(req.tenant.settings, {});
     const n = await nextNumber(req.tenant.id, 'admission-reg');
     const regNo = `REG${new Date().getFullYear()}${pad(n, 4)}`;
-    const docs = (req.files || []).map((f) => ({ name: f.originalname, url: fileUrl(f) }));
+    const docs = [];
+    for (const f of req.files || []) docs.push({ name: f.originalname, url: await saveUpload(req, f) });
     const app = await prisma.admissionApplication.create({
       data: {
         ...data,

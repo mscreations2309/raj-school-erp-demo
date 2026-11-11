@@ -228,6 +228,46 @@ export function LibraryCirculation() {
   );
 }
 
+// ───────── Remove demo data (button, never automatic) ─────────
+function ClearDemoData() {
+  const { is } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const { data: counts, reload } = useFetch(is('SCHOOL_ADMIN') ? '/settings/data-summary' : null);
+  if (!is('SCHOOL_ADMIN') || !counts) return null;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const clear = async () => {
+    setBusy(true);
+    try { const { data } = await api.post('/settings/clear-demo-data', { confirm: text, reason }); setDone(data.removed); toast.success('All demo data removed'); setOpen(false); setText(''); reload(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  const rows = [['students', 'Students'], ['parents', 'Parent / student logins'], ['staff', 'Staff & teachers'], ['attendance', 'Attendance records'], ['invoices', 'Fee invoices'], ['payments', 'Fee receipts'], ['exams', 'Exams'], ['marks', 'Marks'], ['notices', 'Notices'], ['events', 'Calendar events'], ['enquiries', 'Enquiries'], ['applications', 'Admission applications'], ['expenses', 'Expenses'], ['payslips', 'Payslips'], ['books', 'Library books'], ['vehicles', 'Vehicles'], ['hostels', 'Hostels'], ['inventory', 'Inventory items']];
+  return (
+    <Card title="Demo data" className="border-rose-200">
+      {total === 0 ? (
+        <p className="text-sm text-emerald-700">✓ No demo data — everything you see is your own. {done && 'Demo data was removed successfully.'}</p>
+      ) : (
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="text-sm text-slate-600">
+            <p>This school currently has sample records ({counts.students} students, {counts.staff} staff, {counts.invoices} invoices…). Remove them to start entering your own data.</p>
+            <p className="mt-1 text-xs text-slate-500">Kept: website content, classes & sections, subjects, fee heads, academic session and School Admin login(s).</p>
+          </div>
+          <button className="btn-danger shrink-0" onClick={() => setOpen(true)}>Remove all demo data</button>
+        </div>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} title="Remove all demo data?" size="md" footer={<><button className="btn-outline" onClick={() => setOpen(false)}>Cancel</button><button className="btn-danger" disabled={text !== 'DELETE' || reason.trim().length < 3 || busy} onClick={clear}>{busy && <Loader2 size={16} className="animate-spin" />} Move to Recycle Bin</button></>}>
+        <p className="text-sm text-slate-600">These records will be moved to the <b>Recycle Bin as one entry</b>. Nothing is erased — you can restore all of it in one click. Linked logins (staff, parents, students) are blocked.</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">{rows.filter(([k]) => counts[k] > 0).map(([k, l]) => <div key={k} className="flex justify-between rounded-lg bg-rose-50 px-3 py-2"><span>{l}</span><b className="text-rose-700">{counts[k]}</b></div>)}</div>
+        <p className="mt-4 text-xs text-slate-500">Kept: website content (banners, gallery, leadership, results, disclosure, contacts), classes & sections, subjects, fee heads, academic session and School Admin login(s).</p>
+        <Field label="Reason *" className="mt-4"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Starting with real school data" /></Field>
+        <Field label='Type "DELETE" to confirm' className="mt-4"><input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="DELETE" /></Field>
+      </Modal>
+    </Card>
+  );
+}
+
 // ───────── Settings ─────────
 export function Settings() {
   const { refresh } = useAuth();
@@ -282,6 +322,7 @@ export function Settings() {
           <Field label="Google Maps embed URL"><input className="input" value={s.mapEmbed || ''} onChange={(e) => setS('mapEmbed', e.target.value)} /></Field>
         </div>
       </Card>
+      <ClearDemoData />
       <Card title="Grading scale (percentage → grade)">
         <div className="flex flex-wrap gap-3">{(s.gradeScale || []).map((g, k) => (
           <div key={k} className="flex items-center gap-1 rounded-xl border p-2"><input className="w-14 rounded border px-2 py-1 text-sm" value={g.grade} onChange={(e) => setS('gradeScale', s.gradeScale.map((x, i) => (i === k ? { ...x, grade: e.target.value } : x)))} /><span className="text-xs text-slate-400">≥</span><input type="number" className="w-16 rounded border px-2 py-1 text-sm" value={g.min} onChange={(e) => setS('gradeScale', s.gradeScale.map((x, i) => (i === k ? { ...x, min: Number(e.target.value) } : x)))} />%</div>

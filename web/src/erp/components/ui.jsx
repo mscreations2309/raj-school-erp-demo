@@ -171,3 +171,21 @@ export function Avatar({ name = '', src, size = 36 }) {
     <div style={{ width: size, height: size }} className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy-500 to-brand-600 text-xs font-bold text-white">{initials || '?'}</div>
   );
 }
+
+/** Delete = "Move to Recycle Bin" with a mandatory reason. Nothing is ever erased. */
+export function DeleteDialog({ open, onClose, onConfirm, what = 'this record', busy, extraConfirm }) {
+  const [reason, setReason] = useState('');
+  const [check, setCheck] = useState('');
+  useEffect(() => { if (open) { setReason(''); setCheck(''); } }, [open]);
+  const ok = reason.trim().length >= 3 && (!extraConfirm || check === extraConfirm);
+  return (
+    <Modal open={open} onClose={onClose} title="Move to Recycle Bin" size="sm" footer={<><button className="btn-outline" onClick={onClose}>Cancel</button><button className="btn-danger" disabled={!ok || busy} onClick={() => onConfirm(reason.trim())}>{busy && <Loader2 size={16} className="animate-spin" />} Move to Recycle Bin</button></>}>
+      <div className="space-y-4 text-sm">
+        <p className="text-slate-600"><b>{what}</b> and everything linked to it will move to the Recycle Bin. Nothing is erased — it can be restored anytime.</p>
+        <Field label="Reason for deleting *"><textarea autoFocus rows={3} className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Duplicate entry, student left school…" /></Field>
+        {extraConfirm && <Field label={`Type "${extraConfirm}" to confirm`}><input className="input" value={check} onChange={(e) => setCheck(e.target.value)} /></Field>}
+        <p className="text-xs text-slate-400">Your name, role and employee ID are recorded with this action.</p>
+      </div>
+    </Modal>
+  );
+}

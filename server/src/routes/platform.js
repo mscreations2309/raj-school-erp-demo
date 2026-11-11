@@ -7,6 +7,7 @@ import { ah, notFound, badRequest, paging } from '../lib/http.js';
 import { authorize, ALL_MODULES, publicUser } from '../lib/auth.js';
 import { provisionSchool } from '../lib/provision.js';
 import { audit } from '../lib/audit.js';
+import { moveToBin, recordStatusDelete } from '../lib/recycle.js';
 
 const r = Router();
 r.use(authorize('SUPER_ADMIN'));
@@ -136,10 +137,13 @@ r.delete(
   ah(async (req, res) => {
     const s = await prisma.school.findUnique({ where: { id: req.params.id } });
     if (!s) throw notFound();
-    if (req.query.confirm !== s.slug) throw badRequest(`To permanently delete, pass ?confirm=${s.slug}`);
-    await prisma.school.delete({ where: { id: s.id } });
-    audit(req, 'DELETE_SCHOOL', 'School', s.id, { slug: s.slug });
-    res.json({ ok: true });
+    if ((req.body?.confirm || req.query.confirm) !== s.slug) throw badRequest(`Type the school slug "${s.slug}" to confirm`);
+    if (s.status === 'CANCELLED') throw badRequest('School is already deleted (see Recycle Bin)');
+    // Never hard delete a school: it is deactivated (all data kept, logins blocked) and listed in the Recycle Bin
+    await prisma.school.update({ where: { id: s.id }, data: { status: 'CANCELLED' } });
+    const entry = await recordStatusDelete(req, { schoolId: s.id, entityType: 'School', entityId: s.id, label: `School: ${s.name} (${s.slug})`, reason: req.body?.reason, restore: { model: 'School', id: s.id, data: { status: s.status } } });
+    audit(req, 'MOVE_TO_RECYCLE_BIN', 'School', s.id, { slug: s.slug, entry: entry.id });
+    res.json({ ok: true, recycleBinEntryId: entry.id });
   }),
 );
 
@@ -186,7 +190,7 @@ r.put('/plans/:id', ah(async (req, res) => {
 r.delete('/plans/:id', ah(async (req, res) => {
   const used = await prisma.school.count({ where: { planId: req.params.id } });
   if (used) throw badRequest(`Plan is used by ${used} school(s)`);
-  await prisma.plan.delete({ where: { id: req.params.id } });
+  await moveToBin(req, { roots: [{ model: 'Plan', ids: [req.params.id] }], reason: req.body?.reason });
   res.json({ ok: true });
 }));
 

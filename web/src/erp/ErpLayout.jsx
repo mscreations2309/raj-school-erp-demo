@@ -157,7 +157,7 @@ export default function ErpLayout({ platform = false }) {
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {demo && <div className="no-print bg-gradient-to-r from-brand-700 to-gold-600 px-4 py-1 text-center text-xs font-semibold text-white">Demo ERP by RnY Groups — explore freely, all data resets every night at 2 AM.</div>}
+        {demo && <div className="no-print bg-gradient-to-r from-brand-700 to-gold-600 px-4 py-1 text-center text-xs font-semibold text-white">Demo ERP by RnY Groups — sample data can be removed anytime from Settings → School Profile → “Remove all demo data”.</div>}
         <header className="no-print flex h-16 shrink-0 items-center gap-4 border-b bg-white px-4 sm:px-6">
           <button className="rounded-lg p-2 hover:bg-slate-100 lg:hidden" onClick={() => setMobile(true)}><Menu /></button>
           {!platform && !['PARENT', 'STUDENT'].includes(user.role) ? <GlobalSearch /> : <div className="flex-1" />}
