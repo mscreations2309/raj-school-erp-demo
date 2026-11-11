@@ -1,0 +1,12 @@
+# Free keep-alive: pings the Render demo every 10 minutes so it never sleeps during demos.
+name: keep-alive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping demo
+        run: curl -fsS --max-time 90 "${{ vars.DEMO_URL || 'https://raj-school-erp-demo.onrender.com' }}/api/health" || true

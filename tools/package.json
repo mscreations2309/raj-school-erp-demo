@@ -1,0 +1,1 @@
+{"name":"rny-tools","private":true,"type":"module","dependencies":{"embedded-postgres":"^17.2.0-beta.15","puppeteer-core":"^23.11.1","sharp":"^0.35.5"}}

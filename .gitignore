@@ -1,0 +1,9 @@
+node_modules/
+.env
+server/.env
+server/prisma/dev.db*
+web/dist/
+tools/screenshots/
+captured/raw/
+server/uploads/*/20*/
+*.log
