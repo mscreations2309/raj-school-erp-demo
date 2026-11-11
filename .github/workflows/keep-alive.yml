@@ -1,8 +1,8 @@
-# Free keep-alive: pings the Render demo every 10 minutes so it never sleeps during demos.
+# Keep-alive: pings the Render demo every 14 min during 8 AM-10 PM IST (fits the 2,000 free Actions minutes of a private repo).
 name: keep-alive
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/14 2-16 * * *"
   workflow_dispatch:
 jobs:
   ping:
