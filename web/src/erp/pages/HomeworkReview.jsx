@@ -31,7 +31,7 @@ function AiPanel({ ai, maxMarks, onApply, label }) {
             {ai.legibility !== 'clear' && <span className="badge bg-amber-50 text-amber-700"><AlertTriangle size={11} /> {ai.legibility.replace('_', ' ')}</span>}
           </div>
           <p className="text-slate-700">{ai.summary}</p>
-          {ai.questions?.length > 0 && <div className="space-y-1">{ai.questions.map((q, k) => <div key={k} className="flex items-start gap-2 text-xs"><span className={`badge shrink-0 ${VERDICT[q.verdict]?.[1]}`}>{q.label}: {VERDICT[q.verdict]?.[0]}{maxMarks ? ` • ${q.marksAwarded}` : ''}</span><span className="text-slate-600">{q.comment}</span></div>)}</div>}
+          {ai.questions?.length > 0 && <div className="space-y-1">{ai.questions.map((q, k) => <div key={k} className="text-xs"><span className={`badge ${VERDICT[q.verdict]?.[1]}`}>{q.label}: {VERDICT[q.verdict]?.[0]}{maxMarks ? ` • ${q.marksAwarded}` : ''}</span><p className="mt-0.5 text-slate-600">{q.comment}</p></div>)}</div>}
           {ai.strengths?.length > 0 && <div className="text-xs"><b className="text-emerald-700">Strengths:</b> {ai.strengths.join('; ')}</div>}
           {ai.improvements?.length > 0 && <div className="text-xs"><b className="text-amber-700">Improve:</b> {ai.improvements.join('; ')}</div>}
           {ai.teacherNotes && <div className="rounded-lg bg-white/70 p-2 text-xs text-slate-600"><b>Note for teacher:</b> {ai.teacherNotes}</div>}
@@ -216,9 +216,9 @@ export default function HomeworkReview() {
                 <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-navy-900">{fullName(current.student)} <span className="font-normal text-slate-400">• {current.student.admissionNo}</span></div><SaveBadge /></div>
                 <div className="mt-1 text-xs text-slate-500">Submitted {fmtDateTime(sub.submittedAt)} by {sub.submittedBy}{sub.isLate && ' • LATE'}{sub.attempts > 1 && ` • attempt ${sub.attempts}`}</div>
                 {sub.text && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-50 p-3">{sub.text}</p>}
-                {sub.files.filter((x) => !isImg(x.name) && !isPdf(x.name)).map((x) => <a key={x.url} href={x.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-brand-600 underline"><FileText size={13} /> {x.name}</a>)}
+                {sub.files.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{sub.files.map((x) => <a key={x.url} href={x.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border bg-white px-2.5 py-1 text-xs text-brand-700 hover:border-brand-300"><FileText size={13} /> {x.name} <span className="text-slate-400">(open original)</span></a>)}</div>}
               </div>
-              {(pagesLoading || pages.length > 0) ? <Annotator pages={pages} value={ann} onChange={changeAnn} loading={pagesLoading} /> : <div className="card p-6 text-center text-sm text-slate-400">No photos/PDF attached — evaluate the typed answer.</div>}
+              {(pagesLoading || pages.length > 0) ? <Annotator pages={pages} value={ann} onChange={changeAnn} loading={pagesLoading} /> : <div className="card p-6 text-center text-sm text-slate-400">{sub.files.length ? 'This file type cannot be marked on screen — open the original above, then enter marks and feedback on the right.' : 'No photos/PDF attached — evaluate the typed answer.'}</div>}
             </>
           )}
         </div>
@@ -228,11 +228,7 @@ export default function HomeworkReview() {
           {sub && (
             <Card title={<span className="flex items-center gap-2">Evaluation <Badge status={LABEL[sub.status][1]}>{LABEL[sub.status][0]}</Badge></span>}>
               <div className="space-y-4">
-                <button className="btn w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700" disabled={busy === 'ai' || aiStatus?.enabled === false || sub.status === 'PUBLISHED'} onClick={aiEvaluate} title={aiStatus?.enabled === false ? 'AI evaluation is not set up on the server yet' : ''}>
-                  {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'Rynix AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'Rynix AI'}</>}
-                </button>
-                {aiStatus?.enabled === false && <p className="-mt-2 text-center text-[11px] text-amber-700">AI evaluation needs to be switched on by the administrator.</p>}
-                <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} />
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your evaluation</div>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={`Marks${hw.maxMarks ? ` / ${hw.maxMarks}` : ''}`}><input type="number" step="0.5" min={0} max={hw.maxMarks || undefined} className="input" value={f.marks} onChange={(e) => setF({ ...f, marks: e.target.value })} /></Field>
                   <Field label="Grade"><select className="input" value={f.grade} onChange={(e) => setF({ ...f, grade: e.target.value })}><option value="">—</option>{GRADES.map((g) => <option key={g}>{g}</option>)}</select></Field>
@@ -251,6 +247,14 @@ export default function HomeworkReview() {
                     {sub.parentAckAt ? <span className="flex items-start gap-1"><CheckCircle2 size={14} className="shrink-0" /> Parent ({sub.parentAckByName}) acknowledged {fmtDateTime(sub.parentAckAt)}{sub.parentAckNote && <> — “{sub.parentAckNote}”</>}</span> : <span className="flex items-center gap-1"><Clock size={14} /> Waiting for parent's acknowledgement</span>}
                   </div>
                 )}
+                <div className="space-y-3 border-t pt-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Optional: AI help</div>
+                <button className="btn w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700" disabled={busy === 'ai' || aiStatus?.enabled === false || sub.status === 'PUBLISHED'} onClick={aiEvaluate} title={aiStatus?.enabled === false ? 'AI evaluation is not set up on the server yet' : ''}>
+                    {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'Rynix AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'Rynix AI'}</>}
+                  </button>
+                  {aiStatus?.enabled === false && <p className="-mt-2 text-center text-[11px] text-amber-700">AI evaluation needs to be switched on by the administrator.</p>}
+                  <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} />
+                </div>
                 <details className="text-[11px] text-slate-500"><summary className="cursor-pointer">History</summary><ul className="mt-1 space-y-0.5">{sub.history.map((h, k) => <li key={k}>{fmtDateTime(h.at)} — {h.action.replace(/_/g, ' ').toLowerCase()} by {h.by}{h.note ? `: “${h.note}”` : ''}</li>)}</ul></details>
               </div>
             </Card>
