@@ -56,7 +56,7 @@ export async function pdfToImages(url) {
   const pdfjs = await import('pdfjs-dist');
   const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = worker;
-  const doc = await pdfjs.getDocument(url).promise;
+  const doc = await pdfjs.getDocument({ url }).promise;
   const out = [];
   for (let p = 1; p <= Math.min(doc.numPages, 20); p++) {
     const page = await doc.getPage(p);

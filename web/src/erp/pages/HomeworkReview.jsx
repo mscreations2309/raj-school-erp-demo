@@ -80,7 +80,7 @@ export default function HomeworkReview() {
       for (const file of sub.files || []) {
         if (isImg(file.name) || isImg(file.url)) out.push({ key: file.url, src: file.url, name: file.name });
         else if (isPdf(file.name)) {
-          try { (await pdfToImages(file.url)).forEach((src, k) => out.push({ key: `${file.url}#p${k + 1}`, src, name: `${file.name} – page ${k + 1}` })); } catch { /* shown as link below */ }
+          try { (await pdfToImages(file.url)).forEach((src, k) => out.push({ key: `${file.url}#p${k + 1}`, src, name: `${file.name} – page ${k + 1}` })); } catch (err) { console.error('PDF open failed', err); toast.error(`Could not open ${file.name} in the marking board — open it from the link instead.`); }
         }
       }
       if (alive) { setPages(out); setPagesLoading(false); }
