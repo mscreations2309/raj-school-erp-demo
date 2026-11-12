@@ -257,11 +257,6 @@ export default function SiteLayout() {
 
   return (
     <div className="min-h-screen overflow-x-clip">
-      {site.demo && (
-        <div className="relative z-[45] bg-gradient-to-r from-brand-700 via-brand-600 to-gold-600 px-4 py-1.5 text-center text-xs font-semibold text-white">
-          ✨ Demo website by <b>RnY Groups</b> — redesign proposal for {site.school.name}. Sample data shown. <a href="/login" className="underline underline-offset-2">Try the ERP →</a>
-        </div>
-      )}
       <Preloader logo={site.school.logoUrl || '/favicon.png'} />
       <motion.div style={{ scaleX }} className="fixed inset-x-0 top-0 z-[70] h-1 origin-left bg-gradient-to-r from-brand-600 via-rose-500 to-gold-500" />
       <Navbar />
