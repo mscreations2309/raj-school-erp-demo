@@ -41,7 +41,7 @@ r.get('/student/:id', authorize(FAMILY), ah(async (req, res) => {
     prisma.studentAttendance.groupBy({ by: ['status'], where: { studentId: s.id, ...(year && { date: { gte: year.startDate, lte: year.endDate } }) }, _count: true }),
     prisma.feeInvoice.findMany({ where: { studentId: s.id, status: { not: 'CANCELLED' } }, orderBy: { period: 'desc' }, include: { payments: { orderBy: { paidAt: 'desc' } } } }),
     prisma.exam.findMany({ where: { schoolId: req.schoolId, isPublished: true, marks: { some: { studentId: s.id } } }, orderBy: { startDate: 'desc' } }),
-    s.sectionId ? prisma.homework.findMany({ where: { sectionId: s.sectionId, dueDate: { gte: new Date(now.getTime() - 14 * 864e5) } }, orderBy: { dueDate: 'asc' }, include: { subject: true, teacher: { select: { firstName: true, lastName: true } } } }) : [],
+    s.sectionId ? prisma.homework.findMany({ omit: { answerKey: true }, where: { sectionId: s.sectionId, dueDate: { gte: new Date(now.getTime() - 14 * 864e5) } }, orderBy: { dueDate: 'asc' }, include: { subject: true, teacher: { select: { firstName: true, lastName: true } } } }) : [],
     s.sectionId ? prisma.timetableSlot.findMany({ where: { sectionId: s.sectionId }, orderBy: [{ day: 'asc' }, { period: 'asc' }], include: { subject: true, teacher: { select: { firstName: true, lastName: true } } } }) : [],
     prisma.notice.findMany({ where: { schoolId: req.schoolId, audience: { in: ['ALL', 'PARENTS', 'STUDENTS'] }, publishDate: { lte: now } }, orderBy: [{ isPinned: 'desc' }, { publishDate: 'desc' }], take: 10 }),
     prisma.event.findMany({ where: { schoolId: req.schoolId, startDate: { gte: dayKey(now) } }, orderBy: { startDate: 'asc' }, take: 8 }),

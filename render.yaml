@@ -28,6 +28,9 @@ services:
         value: demo
       - key: FILE_STORAGE
         value: db
+      # Claude AI homework evaluation — set the value in Render → Environment (kept secret, not in Git)
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: NODE_VERSION
         value: "22"
       - key: CORS_ORIGIN

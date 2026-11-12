@@ -27,7 +27,7 @@ const tok = async (email, password) => (await call('POST', '/auth/login', null, 
   console.log('2. Teacher assigns homework with online submission');
   const me = (await call('GET', '/portal/teacher', teacher)).data.staff;
   const subj = (await call('GET', `/section-subjects?sectionId=${kid.sectionId}&all=1`, admin)).data.items[0];
-  const hw = (await call('POST', '/homework', admin, { sectionId: kid.sectionId, subjectId: subj.subjectId, teacherId: me.id, title: 'Test: Essay on My School', description: 'Write 150 words', dueDate: new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), maxMarks: 10, allowSubmission: true })).data;
+  const hw = (await call('POST', '/homework', admin, { sectionId: kid.sectionId, subjectId: subj.subjectId, teacherId: me.id, title: 'Test: Essay on My School', description: 'Write 150 words', dueDate: new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), maxMarks: 10, allowSubmission: true, answerKey: 'SECRET-KEY: intro, 3 paragraphs, conclusion' })).data;
   ok(hw?.id && hw.maxMarks === 10, 'homework created (max 10 marks)');
 
   console.log('3. Student submits');
@@ -46,9 +46,23 @@ const tok = async (email, password) => (await call('POST', '/auth/login', null, 
   const re = await call('POST', `/portal/homework/${hw.id}/submit`, student, null, fd2);
   ok(re.data?.attempts === 2 && re.data.status === 'SUBMITTED', 'resubmitted (attempt 2)');
 
+  console.log('4b. Claude AI evaluation (simulated), annotations autosave, privacy');
+  ok((await call('GET', '/ai/status', teacher)).data?.enabled === true, 'AI evaluation available');
+  const aiRes = await call('POST', `/homework-submissions/${subId}/ai-evaluate`, teacher);
+  ok(aiRes.status === 200 && aiRes.data.aiEvaluation?.suggestedMarks <= 10 && aiRes.data.aiEvaluation?.feedbackForStudent, `AI suggested ${aiRes.data.aiEvaluation?.suggestedMarks}/10, grade ${aiRes.data.aiEvaluation?.suggestedGrade}`);
+  ok(aiRes.data.history.some((h) => h.action === 'AI_EVALUATED'), 'AI evaluation recorded in history');
+  const annotations = { [sub.data.files[0].url]: [{ t: 'tick', c: '#16a34a', x: 0.2, y: 0.3 }, { t: 'pen', c: '#dc2626', pts: [[0.1, 0.1], [0.2, 0.2]] }] };
+  ok((await call('PUT', `/homework-submissions/${subId}/annotations`, teacher, { annotations })).data?.ok, 'annotations autosaved to cloud');
+  const rv = (await call('GET', `/homework/${hw.id}/submissions`, teacher)).data.rows.find((r) => r.submission?.id === subId).submission;
+  ok(rv.annotations[sub.data.files[0].url]?.length === 2 && rv.aiEvaluation, 'teacher sees saved annotations and AI suggestion');
+  const fam = (await call('GET', `/portal/student/${kid.id}/homework`, student)).data.items.find((h) => h.id === hw.id);
+  ok(!('answerKey' in fam) && !('aiEvaluation' in fam.submission) && !('annotations' in fam.submission), 'student cannot see answer key, AI draft or raw annotations');
+  const ov = (await call('GET', `/portal/student/${kid.id}`, parent)).data;
+  ok(!JSON.stringify(ov).includes('SECRET-KEY'), 'answer key never appears in parent portal');
+
   console.log('5. Teacher evaluates → hidden until published');
   ok((await call('PUT', `/homework-submissions/${subId}/evaluate`, teacher, { marks: 12 })).status === 400, 'marks above max rejected');
-  await call('PUT', `/homework-submissions/${subId}/evaluate`, teacher, { marks: 8.5, grade: 'A', feedback: 'Very good work' });
+  await call('PUT', `/homework-submissions/${subId}/evaluate`, teacher, { marks: 8.5, grade: 'A', feedback: 'Very good work', aiAssisted: true });
   list = (await call('GET', `/portal/student/${kid.id}/homework`, student)).data.items.find((h) => h.id === hw.id);
   ok(list.submission.status === 'EVALUATED' && list.submission.marks === null, 'student cannot see marks before publishing');
   ok((await call('POST', `/portal/submissions/${subId}/acknowledge`, parent, {})).status === 400, 'parent cannot acknowledge before publishing');

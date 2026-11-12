@@ -7,6 +7,7 @@ import { ah, notFound, badRequest, forbidden, parseJSON } from '../lib/http.js';
 import { authorize, requireModule, ADMINS } from '../lib/auth.js';
 import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
+import { evaluateSubmission, aiEnabled } from '../lib/ai.js';
 
 const TEACH = [...ADMINS, 'TEACHER'];
 const FAMILY = ['PARENT', 'STUDENT'];
@@ -25,7 +26,9 @@ async function loadHomework(req, id) {
   return hw;
 }
 
-const view = (s) => s && ({ ...s, files: parseJSON(s.files, []), checkedFiles: parseJSON(s.checkedFiles, []), history: parseJSON(s.history, []) });
+const view = (s) => s && ({ ...s, files: parseJSON(s.files, []), checkedFiles: parseJSON(s.checkedFiles, []), history: parseJSON(s.history, []), annotations: parseJSON(s.annotations, {}), aiEvaluation: parseJSON(s.aiEvaluation, null) });
+/** What students/parents may see: never the AI draft, private annotations data or the answer key. */
+const familyView = (s) => { if (!s) return s; const v = view(s); delete v.aiEvaluation; delete v.annotations; delete v.aiAssisted; return v; };
 
 // ───────── Teacher side ─────────
 export const teacherRoutes = Router();
@@ -55,6 +58,7 @@ const evalSchema = z.object({
   feedback: z.string().max(4000).optional().nullable(),
   checkedFiles: z.array(z.object({ name: z.string(), url: z.string() })).optional(),
   publish: z.boolean().optional(),
+  aiAssisted: z.boolean().optional(),
 });
 
 async function loadSubmission(req, id) {
@@ -75,6 +79,7 @@ teacherRoutes.put('/homework-submissions/:id/evaluate', requireModule('homework'
     data: {
       marks, grade: d.grade || null, feedback: d.feedback || null,
       ...(d.checkedFiles && { checkedFiles: JSON.stringify(d.checkedFiles) }),
+      ...(d.aiAssisted && { aiAssisted: true }),
       status: publishing || s.status === 'PUBLISHED' ? 'PUBLISHED' : 'EVALUATED',
       evaluatedById: req.user.id, evaluatedByName: req.user.name, evaluatedAt: new Date(),
       ...(publishing && !s.publishedAt && { publishedAt: new Date() }),
@@ -83,6 +88,32 @@ teacherRoutes.put('/homework-submissions/:id/evaluate', requireModule('homework'
   });
   if (publishing && s.status !== 'PUBLISHED') await notifyPublished(req, [updated], hw);
   audit(req, 'EVALUATE_HOMEWORK', 'HomeworkSubmission', s.id, { marks, grade: d.grade, publish: publishing });
+  res.json(view(updated));
+}));
+
+/** Autosave of the teacher's annotations (pen, highlight, ticks…) — "saved to cloud". */
+teacherRoutes.put('/homework-submissions/:id/annotations', requireModule('homework'), authorize(TEACH), ah(async (req, res) => {
+  const { s } = await loadSubmission(req, req.params.id);
+  const annotations = req.body?.annotations;
+  if (!annotations || typeof annotations !== 'object') throw badRequest('annotations object required');
+  const json = JSON.stringify(annotations);
+  if (json.length > 2_000_000) throw badRequest('Too many annotations on this submission');
+  await prisma.homeworkSubmission.update({ where: { id: s.id }, data: { annotations: json } });
+  res.json({ ok: true, savedAt: new Date() });
+}));
+
+teacherRoutes.get('/ai/status', authorize(TEACH), (_req, res) => res.json({ enabled: aiEnabled(), model: 'Claude' }));
+
+/** Claude AI evaluation → saved as a suggestion; the teacher reviews before publishing. */
+teacherRoutes.post('/homework-submissions/:id/ai-evaluate', requireModule('homework'), authorize(TEACH), ah(async (req, res) => {
+  const { s, hw } = await loadSubmission(req, req.params.id);
+  const st = await prisma.student.findUnique({ where: { id: s.studentId }, include: { grade: true, section: true } });
+  const result = await evaluateSubmission({ homework: hw, submission: s, student: { className: `${st.grade?.name || ''}-${st.section?.name || ''}` } });
+  const updated = await prisma.homeworkSubmission.update({
+    where: { id: s.id },
+    data: { aiEvaluation: JSON.stringify(result), aiEvaluatedAt: new Date(), history: hist(s, { action: 'AI_EVALUATED', by: `Claude AI (requested by ${req.user.name})`, marks: result.suggestedMarks, grade: result.suggestedGrade }) },
+  });
+  audit(req, 'AI_EVALUATE_HOMEWORK', 'HomeworkSubmission', s.id, { marks: result.suggestedMarks, grade: result.suggestedGrade, model: result.model });
   res.json(view(updated));
 }));
 
@@ -145,8 +176,8 @@ familyRoutes.get('/student/:id/homework', authorize(FAMILY), ah(async (req, res)
     include: { subject: true, teacher: { select: { firstName: true, lastName: true } }, submissions: { where: { studentId: st.id } } },
   });
   res.json({
-    items: list.map(({ submissions, ...hw }) => {
-      const s = view(submissions[0]);
+    items: list.map(({ submissions, answerKey, ...hw }) => {
+      const s = familyView(submissions[0]);
       // Marks / grade / feedback stay hidden until the teacher publishes (except resubmission requests)
       if (s && !['PUBLISHED', 'RESUBMIT'].includes(s.status)) { s.marks = null; s.grade = null; s.feedback = null; s.checkedFiles = []; }
       return { ...hw, submission: s || null, overdue: !s && hw.allowSubmission && new Date(hw.dueDate) < new Date() };
@@ -171,7 +202,7 @@ familyRoutes.post('/homework/:hwId/submit', authorize(FAMILY), upload.array('fil
   const sub = existing
     ? await prisma.homeworkSubmission.update({ where: { id: existing.id }, data: { ...data, attempts: existing.attempts + 1, history: hist(existing, { action: 'RESUBMITTED', by: req.user.name, role: req.user.role, late: isLate }) } })
     : await prisma.homeworkSubmission.create({ data: { ...data, schoolId: req.schoolId, homeworkId: hw.id, studentId: st.id, history: hist(null, { action: 'SUBMITTED', by: req.user.name, role: req.user.role, late: isLate }) } });
-  res.status(201).json(view(sub));
+  res.status(201).json(familyView(sub));
 }));
 
 familyRoutes.post('/submissions/:id/acknowledge', authorize('PARENT'), ah(async (req, res) => {
@@ -179,11 +210,11 @@ familyRoutes.post('/submissions/:id/acknowledge', authorize('PARENT'), ah(async 
   if (!s) throw notFound();
   await ownStudent(req, s.studentId);
   if (s.status !== 'PUBLISHED') throw badRequest('The teacher has not published this evaluation yet');
-  if (s.parentAckAt) return res.json(view(s));
+  if (s.parentAckAt) return res.json(familyView(s));
   const note = String(req.body?.note || '').slice(0, 1000) || null;
   const updated = await prisma.homeworkSubmission.update({
     where: { id: s.id },
     data: { parentAckAt: new Date(), parentAckById: req.user.id, parentAckByName: req.user.name, parentAckNote: note, history: hist(s, { action: 'PARENT_ACKNOWLEDGED', by: req.user.name, note }) },
   });
-  res.json(view(updated));
+  res.json(familyView(updated));
 }));

@@ -789,6 +789,7 @@ model Homework {
   dueDate         DateTime
   maxMarks        Float? // optional — teacher can grade with marks and/or grade
   allowSubmission Boolean              @default(true) // students upload their work online
+  answerKey       String? // model answer / marking scheme (teacher only; guides AI evaluation)
   submissions     HomeworkSubmission[]
 }
 
@@ -822,6 +823,10 @@ model HomeworkSubmission {
   parentAckByName String?
   parentAckNote   String?
   history         String    @default("[]") // JSON timeline
+  annotations     String    @default("{}") // teacher's pen/highlight/tick marks per page (JSON, autosaved)
+  aiEvaluation    String? // Claude's suggested evaluation (JSON) — teacher reviews before publishing
+  aiEvaluatedAt   DateTime?
+  aiAssisted      Boolean   @default(false)
 
   @@unique([homeworkId, studentId])
   @@index([schoolId, status])
