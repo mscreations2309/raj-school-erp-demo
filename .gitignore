@@ -7,3 +7,5 @@ tools/screenshots/
 captured/raw/
 server/uploads/*/20*/
 *.log
+student-logins.csv
+tools/live-*.mjs
