@@ -12,7 +12,9 @@ const MODEL = 'claude-opus-5-5';
 let client = null;
 // Provider: Gemini when GEMINI_API_KEY is set (free tier available), otherwise Claude when ANTHROPIC_API_KEY is set.
 export const aiProvider = () => (process.env.AI_FAKE === '1' ? 'test' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.ANTHROPIC_API_KEY ? 'claude' : null);
-export const aiProviderLabel = () => ({ gemini: 'Gemini AI', claude: 'Claude AI', test: 'AI (test)' })[aiProvider()] || 'AI';
+// In-house brand shown to users (the underlying engine — Gemini or Claude — is not shown). Change with AI_BRAND_NAME.
+export const aiProviderLabel = () => process.env.AI_BRAND_NAME || 'Rynix AI';
+export const aiEngine = () => ({ gemini: 'gemini', claude: 'claude', test: 'test' })[aiProvider()] || null;
 export const aiEnabled = () => !!aiProvider();
 const GEMINI_MODEL = () => process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 let gemini = null;

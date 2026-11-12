@@ -21,7 +21,7 @@ function AiPanel({ ai, maxMarks, onApply, label }) {
   if (!ai) return null;
   return (
     <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-3 text-sm">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between font-semibold text-violet-800"><span className="flex items-center gap-1.5"><Sparkles size={15} /> {ai.provider || label} suggestion</span><ChevronDown size={15} className={open ? 'rotate-180' : ''} /></button>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between font-semibold text-violet-800"><span className="flex items-center gap-1.5"><Sparkles size={15} /> {label || 'Rynix AI'} suggestion</span><ChevronDown size={15} className={open ? 'rotate-180' : ''} /></button>
       {open && (
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -161,7 +161,7 @@ export default function HomeworkReview() {
     try {
       const { data: updated } = await api.post(`/homework-submissions/${sub.id}/ai-evaluate`);
       setData((d) => ({ ...d, rows: d.rows.map((r) => (r.submission?.id === updated.id ? { ...r, submission: { ...r.submission, aiEvaluation: updated.aiEvaluation, aiEvaluatedAt: updated.aiEvaluatedAt, history: updated.history } } : r)) }));
-      toast.success(`${aiStatus?.label || 'AI'} has suggested an evaluation — please review it`);
+      toast.success(`${aiStatus?.label || 'Rynix AI'} has suggested an evaluation — please review it`);
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(''); }
   };
   const applyAi = () => {
@@ -229,7 +229,7 @@ export default function HomeworkReview() {
             <Card title={<span className="flex items-center gap-2">Evaluation <Badge status={LABEL[sub.status][1]}>{LABEL[sub.status][0]}</Badge></span>}>
               <div className="space-y-4">
                 <button className="btn w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700" disabled={busy === 'ai' || aiStatus?.enabled === false || sub.status === 'PUBLISHED'} onClick={aiEvaluate} title={aiStatus?.enabled === false ? 'AI evaluation is not set up on the server yet' : ''}>
-                  {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'AI'}</>}
+                  {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'Rynix AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'Rynix AI'}</>}
                 </button>
                 {aiStatus?.enabled === false && <p className="-mt-2 text-center text-[11px] text-amber-700">AI evaluation needs to be switched on by the administrator.</p>}
                 <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} />
