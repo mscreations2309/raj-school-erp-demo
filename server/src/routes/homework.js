@@ -7,7 +7,7 @@ import { ah, notFound, badRequest, forbidden, parseJSON } from '../lib/http.js';
 import { authorize, requireModule, ADMINS } from '../lib/auth.js';
 import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
-import { evaluateSubmission, aiEnabled } from '../lib/ai.js';
+import { evaluateSubmission, aiEnabled, aiProviderLabel } from '../lib/ai.js';
 
 const TEACH = [...ADMINS, 'TEACHER'];
 const FAMILY = ['PARENT', 'STUDENT'];
@@ -102,7 +102,7 @@ teacherRoutes.put('/homework-submissions/:id/annotations', requireModule('homewo
   res.json({ ok: true, savedAt: new Date() });
 }));
 
-teacherRoutes.get('/ai/status', authorize(TEACH), (_req, res) => res.json({ enabled: aiEnabled(), model: 'Claude' }));
+teacherRoutes.get('/ai/status', authorize(TEACH), (_req, res) => res.json({ enabled: aiEnabled(), label: aiProviderLabel() }));
 
 /** Claude AI evaluation → saved as a suggestion; the teacher reviews before publishing. */
 teacherRoutes.post('/homework-submissions/:id/ai-evaluate', requireModule('homework'), authorize(TEACH), ah(async (req, res) => {
@@ -111,7 +111,7 @@ teacherRoutes.post('/homework-submissions/:id/ai-evaluate', requireModule('homew
   const result = await evaluateSubmission({ homework: hw, submission: s, student: { className: `${st.grade?.name || ''}-${st.section?.name || ''}` } });
   const updated = await prisma.homeworkSubmission.update({
     where: { id: s.id },
-    data: { aiEvaluation: JSON.stringify(result), aiEvaluatedAt: new Date(), history: hist(s, { action: 'AI_EVALUATED', by: `Claude AI (requested by ${req.user.name})`, marks: result.suggestedMarks, grade: result.suggestedGrade }) },
+    data: { aiEvaluation: JSON.stringify(result), aiEvaluatedAt: new Date(), history: hist(s, { action: 'AI_EVALUATED', by: `${aiProviderLabel()} (requested by ${req.user.name})`, marks: result.suggestedMarks, grade: result.suggestedGrade }) },
   });
   audit(req, 'AI_EVALUATE_HOMEWORK', 'HomeworkSubmission', s.id, { marks: result.suggestedMarks, grade: result.suggestedGrade, model: result.model });
   res.json(view(updated));

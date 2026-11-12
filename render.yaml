@@ -28,7 +28,10 @@ services:
         value: demo
       - key: FILE_STORAGE
         value: db
-      # Claude AI homework evaluation — set the value in Render → Environment (kept secret, not in Git)
+      # AI homework evaluation — set the value in Render → Environment (kept secret, not in Git).
+      # GEMINI_API_KEY (free tier) is used when present; otherwise ANTHROPIC_API_KEY (Claude).
+      - key: GEMINI_API_KEY
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: NODE_VERSION

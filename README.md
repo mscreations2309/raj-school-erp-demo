@@ -47,8 +47,8 @@ The login page also has one-click demo buttons for every role.
 
 ## Checking homework: annotate + Claude AI
 - **Check work** opens each student's photos/PDF pages straight into an annotation board (pen, highlighter, tick, cross, text, eraser, undo, zoom). Marks **autosave to the cloud**; on Save/Publish the marked-up pages automatically become the student's checked copy.
-- **Evaluate with Claude AI** reads the question, the optional *answer key / marking scheme* and the student's typed + handwritten work, then suggests marks, grade, per-question verdicts, strengths, improvements and student feedback (plus private notes for the teacher). The teacher reviews/edits and only then publishes. Students and parents never see the AI draft or the answer key.
-- **Enable AI:** add `ANTHROPIC_API_KEY` (from console.anthropic.com) in Render → raj-school-erp-demo → Environment. Model: Claude Opus 5.5. Pay-per-use (roughly ₹2–10 per evaluation depending on pages).
+- **Evaluate with AI** (Gemini or Claude) reads the question, the optional *answer key / marking scheme* and the student's typed + handwritten work, then suggests marks, grade, per-question verdicts, strengths, improvements and student feedback (plus private notes for the teacher). The teacher reviews/edits and only then publishes. Students and parents never see the AI draft or the answer key.
+- **Enable AI:** add `GEMINI_API_KEY` (Google AI Studio, free tier) **or** `ANTHROPIC_API_KEY` (Claude Opus 5.5, pay-per-use) in Render → raj-school-erp-demo → Environment. Gemini is used when both are set; optional `GEMINI_MODEL` (default `gemini-3.5-flash`).
 
 ## Data safety — nothing is ever erased
 - **Every Delete = Move to Recycle Bin** with a mandatory reason. The record *and everything linked to it* (e.g. a student's fees, attendance, marks, documents) is stored as a complete copy with the employee's name, role, employee ID, date/time and reason.

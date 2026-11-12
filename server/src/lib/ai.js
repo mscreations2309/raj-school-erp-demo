@@ -1,6 +1,7 @@
-// AI homework evaluation with Claude. The result is only a SUGGESTION for the teacher —
+// AI homework evaluation (Google Gemini or Anthropic Claude). The result is only a SUGGESTION for the teacher —
 // nothing reaches students or parents until the teacher reviews and publishes.
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from './prisma.js';
@@ -9,7 +10,13 @@ import { HttpError } from './http.js';
 
 const MODEL = 'claude-opus-5-5';
 let client = null;
-export const aiEnabled = () => !!process.env.ANTHROPIC_API_KEY || process.env.AI_FAKE === '1';
+// Provider: Gemini when GEMINI_API_KEY is set (free tier available), otherwise Claude when ANTHROPIC_API_KEY is set.
+export const aiProvider = () => (process.env.AI_FAKE === '1' ? 'test' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.ANTHROPIC_API_KEY ? 'claude' : null);
+export const aiProviderLabel = () => ({ gemini: 'Gemini AI', claude: 'Claude AI', test: 'AI (test)' })[aiProvider()] || 'AI';
+export const aiEnabled = () => !!aiProvider();
+const GEMINI_MODEL = () => process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+let gemini = null;
+const getGemini = () => (gemini ||= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, apiVersion: 'v1beta' }));
 const getClient = () => (client ||= process.env.AI_FAKE === '1' ? fakeClient() : new Anthropic()); // reads ANTHROPIC_API_KEY from the environment
 
 /** Offline stand-in used only by automated tests (AI_FAKE=1): returns a fixed, schema-valid evaluation. */
@@ -83,7 +90,7 @@ Evaluate the work against the question:
 
 /** Ask Claude to evaluate one submission. Returns the parsed suggestion object. */
 export async function evaluateSubmission({ homework, student, submission }) {
-  if (!aiEnabled()) throw new HttpError(503, 'AI evaluation is not set up yet. Add an ANTHROPIC_API_KEY on the server to enable it.');
+  if (!aiEnabled()) throw new HttpError(503, 'AI evaluation is not set up yet. Add a GEMINI_API_KEY (or ANTHROPIC_API_KEY) on the server to enable it.');
   const files = JSON.parse(submission.files || '[]');
   const content = [];
   let attached = 0;
@@ -110,6 +117,13 @@ export async function evaluateSubmission({ homework, student, submission }) {
   ].join('\n');
   content.push({ type: 'text', text: `${brief}\n\nEvaluate this homework submission.` });
 
+  const result = aiProvider() === 'gemini' ? await callGemini(content, brief) : await callClaude(content);
+  if (homework.maxMarks != null) result.suggestedMarks = Math.min(Math.max(0, Number(result.suggestedMarks) || 0), homework.maxMarks);
+  else result.suggestedMarks = null;
+  return { ...result, attachedPages: attached, provider: aiProviderLabel() };
+}
+
+async function callClaude(content) {
   let response;
   try {
     response = await getClient().beta.messages.create({
@@ -132,10 +146,28 @@ export async function evaluateSubmission({ homework, student, submission }) {
   if (response.stop_reason === 'refusal') throw new HttpError(422, 'AI declined to evaluate this submission. Please evaluate it manually.');
   if (response.stop_reason === 'max_tokens') throw new HttpError(502, 'AI response was cut off. Please try again.');
   const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-  let result;
-  try { result = JSON.parse(text); } catch { throw new HttpError(502, 'AI returned an unexpected answer. Please try again.'); }
-  if (homework.maxMarks != null) result.suggestedMarks = Math.min(Math.max(0, Number(result.suggestedMarks) || 0), homework.maxMarks);
-  else result.suggestedMarks = null;
-  return { ...result, model: response.model, attachedPages: attached, usage: { input: response.usage?.input_tokens, output: response.usage?.output_tokens } };
+  try { return { ...JSON.parse(text), model: response.model }; } catch { throw new HttpError(502, 'AI returned an unexpected answer. Please try again.'); }
 }
+
+/** Same request for Google Gemini: images/PDFs as inline data + JSON-schema structured output. */
+async function callGemini(content) {
+  const parts = content.map((c) => (c.type === 'text' ? { text: c.text } : { inlineData: { mimeType: c.source.media_type, data: c.source.data } }));
+  let res;
+  try {
+    res = await getGemini().models.generateContent({
+      model: GEMINI_MODEL(),
+      contents: [{ role: 'user', parts }],
+      config: { systemInstruction: SYSTEM, responseMimeType: 'application/json', responseJsonSchema: SCHEMA, temperature: 0.2 },
+    });
+  } catch (e) {
+    const status = e?.status || e?.code;
+    if (status === 429) throw new HttpError(429, 'AI free limit reached for now — please try again in a minute.');
+    if (status === 400 || status === 403) throw new HttpError(503, `Gemini rejected the request: ${String(e.message).slice(0, 160)}`);
+    throw new HttpError(502, `AI service error. Please try again. (${String(e.message || e).slice(0, 120)})`);
+  }
+  const reason = res.candidates?.[0]?.finishReason;
+  if (reason === 'SAFETY' || reason === 'PROHIBITED_CONTENT') throw new HttpError(422, 'AI declined to evaluate this submission. Please evaluate it manually.');
+  try { return { ...JSON.parse(res.text), model: res.modelVersion || GEMINI_MODEL() }; } catch { throw new HttpError(502, 'AI returned an unexpected answer. Please try again.'); }
+}
+
 

@@ -16,12 +16,12 @@ const VERDICT = { correct: ['Correct', 'text-emerald-700 bg-emerald-50'], partia
 const isImg = (n) => /\.(png|jpe?g|webp|gif)$/i.test(n);
 const isPdf = (n) => /\.pdf$/i.test(n);
 
-function AiPanel({ ai, maxMarks, onApply }) {
+function AiPanel({ ai, maxMarks, onApply, label }) {
   const [open, setOpen] = useState(true);
   if (!ai) return null;
   return (
     <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-3 text-sm">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between font-semibold text-violet-800"><span className="flex items-center gap-1.5"><Sparkles size={15} /> Claude AI suggestion</span><ChevronDown size={15} className={open ? 'rotate-180' : ''} /></button>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between font-semibold text-violet-800"><span className="flex items-center gap-1.5"><Sparkles size={15} /> {ai.provider || label} suggestion</span><ChevronDown size={15} className={open ? 'rotate-180' : ''} /></button>
       {open && (
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +145,7 @@ export default function HomeworkReview() {
     try {
       const { data: updated } = await api.post(`/homework-submissions/${sub.id}/ai-evaluate`);
       setData((d) => ({ ...d, rows: d.rows.map((r) => (r.submission?.id === updated.id ? { ...r, submission: { ...r.submission, aiEvaluation: updated.aiEvaluation, aiEvaluatedAt: updated.aiEvaluatedAt, history: updated.history } } : r)) }));
-      toast.success('Claude has suggested an evaluation — please review it');
+      toast.success(`${aiStatus?.label || 'AI'} has suggested an evaluation — please review it`);
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(''); }
   };
   const applyAi = () => {
@@ -213,10 +213,10 @@ export default function HomeworkReview() {
             <Card title={<span className="flex items-center gap-2">Evaluation <Badge status={LABEL[sub.status][1]}>{LABEL[sub.status][0]}</Badge></span>}>
               <div className="space-y-4">
                 <button className="btn w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700" disabled={busy === 'ai' || aiStatus?.enabled === false || sub.status === 'PUBLISHED'} onClick={aiEvaluate} title={aiStatus?.enabled === false ? 'AI evaluation is not set up on the server yet' : ''}>
-                  {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> Claude is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate with Claude AI' : 'Evaluate with Claude AI'}</>}
+                  {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'AI'}</>}
                 </button>
                 {aiStatus?.enabled === false && <p className="-mt-2 text-center text-[11px] text-amber-700">AI evaluation needs to be switched on by the administrator.</p>}
-                <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} />
+                <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} />
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={`Marks${hw.maxMarks ? ` / ${hw.maxMarks}` : ''}`}><input type="number" step="0.5" min={0} max={hw.maxMarks || undefined} className="input" value={f.marks} onChange={(e) => setF({ ...f, marks: e.target.value })} /></Field>
                   <Field label="Grade"><select className="input" value={f.grade} onChange={(e) => setF({ ...f, grade: e.target.value })}><option value="">—</option>{GRADES.map((g) => <option key={g}>{g}</option>)}</select></Field>
