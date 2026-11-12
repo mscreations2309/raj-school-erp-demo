@@ -4,10 +4,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { NotebookPen, FileText, Loader2, Save, Send, RotateCcw, CheckCircle2, Clock, ThumbsUp, ArrowLeft, Eye, Sparkles, Cloud, CloudOff, Wand2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { NotebookPen, FileText, Loader2, Save, Send, RotateCcw, CheckCircle2, Clock, ThumbsUp, ArrowLeft, Eye, Sparkles, Cloud, CloudOff, Wand2, AlertTriangle, ChevronDown, Award, MessageSquare } from 'lucide-react';
 import { api, errMsg } from '../../lib/api';
 import { fmtDate, fmtDateTime, fullName } from '../../lib/format';
-import { Card, Spinner, Empty, useFetch, Badge, Field, Avatar, ErrorBox } from '../components/ui';
+import { Card, Spinner, Empty, useFetch, Badge, Field, Avatar, ErrorBox, Modal } from '../components/ui';
 import Annotator, { flattenPage, pdfToImages } from '../components/Annotator';
 
 const LABEL = { SUBMITTED: ['To check', 'NEW'], EVALUATED: ['Checked (not published)', 'TEST_SCHEDULED'], PUBLISHED: ['Published', 'PAID'], RESUBMIT: ['Redo requested', 'PENDING'] };
@@ -56,6 +56,7 @@ export default function HomeworkReview() {
   const [saveState, setSaveState] = useState('saved'); // saved | saving | dirty | error
   const [busy, setBusy] = useState('');
   const [aiUsed, setAiUsed] = useState(false);
+  const [preview, setPreview] = useState(null);
   const timer = useRef(null);
 
   const rows = data?.rows || [];
@@ -139,6 +140,21 @@ export default function HomeworkReview() {
       if (nextRow && kind !== 'save') setSel(nextRow.student.id);
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(''); }
   };
+
+  /** Preview exactly what the student & parent will see — marked-up pages rendered locally, nothing uploaded. */
+  const openPreview = async () => {
+    setBusy('preview');
+    try {
+      const marked = [];
+      for (const p of pages) {
+        const items = ann[p.key] || [];
+        if (!items.length) continue;
+        marked.push({ name: p.name, url: URL.createObjectURL(await flattenPage(p.src, items)) });
+      }
+      setPreview({ marked, unmarked: pages.length - marked.length });
+    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(''); }
+  };
+  const closePreview = () => { preview?.marked.forEach((m) => URL.revokeObjectURL(m.url)); setPreview(null); };
 
   const aiEvaluate = async () => {
     setBusy('ai');
@@ -224,6 +240,7 @@ export default function HomeworkReview() {
                 <Field label="Feedback for student & parent"><textarea className="input" rows={5} value={f.feedback} onChange={(e) => setF({ ...f, feedback: e.target.value })} placeholder="Well done! Work on…" /></Field>
                 {aiUsed && <p className="text-[11px] text-violet-700">✓ AI-assisted — reviewed by you before publishing</p>}
                 <p className="text-[11px] text-slate-500">Your pen marks are saved automatically and attached as the checked copy when you save or publish.</p>
+                <button className="btn-outline w-full border-navy-200 text-navy-800" disabled={!!busy} onClick={openPreview}>{busy === 'preview' ? <Loader2 size={15} className="animate-spin" /> : <Eye size={15} />} Preview as student / parent</button>
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn-outline" disabled={!!busy} onClick={() => act('save')}>{busy === 'save' ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save</button>
                   <button className="btn-primary" disabled={!!busy} onClick={() => act('publish')}>{busy === 'publish' ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} {sub.status === 'PUBLISHED' ? 'Update' : 'Publish'}</button>
@@ -240,6 +257,35 @@ export default function HomeworkReview() {
           )}
         </div>
       </div>
+
+      <Modal open={!!preview} onClose={closePreview} title={`Preview — what ${current ? fullName(current.student) : 'the student'} and parent will see`} size="xl"
+        footer={<><button className="btn-outline" onClick={closePreview}>Back to editing</button><button className="btn-outline" disabled={!!busy} onClick={async () => { closePreview(); await act('save'); }}><Save size={15} /> Save draft</button><button className="btn-primary" disabled={!!busy} onClick={async () => { closePreview(); await act('publish'); }}><Send size={15} /> {sub?.status === 'PUBLISHED' ? 'Update published' : 'Publish now'}</button></>}>
+        {preview && sub && (
+          <div className="mx-auto max-w-3xl space-y-4">
+            <div className="rounded-2xl border border-slate-200 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div><Badge status="NEW">{hw.subject.name}</Badge><h3 className="mt-2 font-semibold text-navy-900">{hw.title}</h3></div>
+                <span className="badge bg-emerald-50 text-emerald-700">Checked</span>
+              </div>
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Award size={20} className="text-emerald-600" />
+                  {f.marks !== '' && f.marks != null ? <span className="text-2xl font-bold text-navy-900">{f.marks}{hw.maxMarks ? <span className="text-sm font-normal text-slate-500">/{hw.maxMarks}</span> : ''}</span> : <span className="text-xs text-amber-700">No marks entered</span>}
+                  {f.grade ? <span className="badge bg-emerald-600 text-white">{f.grade}</span> : <span className="text-xs text-amber-700">No grade selected</span>}
+                </div>
+                {f.feedback.trim() ? <p className="mt-3 flex gap-1.5 text-slate-700"><MessageSquare size={15} className="mt-0.5 shrink-0 text-slate-400" />{f.feedback}</p> : <p className="mt-3 text-xs text-amber-700">⚠ No feedback written — students and parents value a short comment.</p>}
+                <div className="mt-4 text-[11px] font-semibold uppercase text-slate-400">Checked copy</div>
+                {preview.marked.length ? (
+                  <div className="mt-2 space-y-3">{preview.marked.map((m) => <figure key={m.url}><img src={m.url} alt={m.name} className="w-full rounded-lg border bg-white shadow-sm" /><figcaption className="mt-1 text-center text-[11px] text-slate-500">Checked – {m.name}</figcaption></figure>)}</div>
+                ) : <p className="mt-1 text-xs text-slate-500">No pen marks on any page — only marks and feedback will be shown.</p>}
+                {preview.unmarked > 0 && preview.marked.length > 0 && <p className="mt-2 text-[11px] text-slate-500">{preview.unmarked} page(s) without marks are not included in the checked copy.</p>}
+                <div className="mt-4 border-t border-emerald-200 pt-3 text-xs text-amber-700">The parent will see an “Acknowledge” button for this evaluation.</div>
+              </div>
+            </div>
+            <p className="text-center text-[11px] text-slate-400">This is a preview only — nothing has been sent yet. AI drafts, private notes and the answer key are never shown to students or parents.</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
