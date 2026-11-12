@@ -72,7 +72,7 @@ r.use('/notices', crudRouter('Notice', {
 }));
 r.use('/homework', crudRouter('Homework', {
   module: 'homework', write: TEACH, filters: ['sectionId', 'subjectId', 'teacherId'], search: ['title'],
-  orderBy: { assignedDate: 'desc' }, include: { section: { include: { grade: true } }, subject: true, teacher: true },
+  orderBy: { assignedDate: 'desc' }, include: { section: { include: { grade: true } }, subject: true, teacher: true, _count: { select: { submissions: true } } },
   async beforeSave(data, req) {
     if (req.user.role === 'TEACHER' && !data.teacherId) {
       const staff = await prisma.staff.findFirst({ where: { userId: req.user.id } });

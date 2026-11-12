@@ -9,6 +9,7 @@ import { useAuth } from '../../lib/auth';
 import { fmtDate, money, fullName, pretty, isoDay } from '../../lib/format';
 import { Card, Spinner, Empty, useFetch, Badge, Stat, Modal, Tabs, Avatar, Field, ErrorBox } from '../components/ui';
 import { ReportCardView } from './Exams';
+import HomeworkFamily from './HomeworkFamily';
 
 const DOT = { PRESENT: 'bg-emerald-500', ABSENT: 'bg-rose-500', LATE: 'bg-amber-500', HALF_DAY: 'bg-sky-500', LEAVE: 'bg-violet-500' };
 
@@ -93,7 +94,7 @@ export function ParentPortal() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-navy-900 via-navy-800 to-brand-800 p-6 text-white">
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-gold-400/20 blur-3xl" />
         <p className="text-sm text-white/70">Namaste, {user.name} 🙏</p>
-        <h1 className="mt-1 text-2xl font-bold">Parent Portal</h1>
+        <h1 className="mt-1 text-2xl font-bold">{user.role === 'STUDENT' ? 'Student Portal' : 'Parent Portal'}</h1>
         {kids.items.length > 1 && <div className="mt-5 flex flex-wrap gap-2">{kids.items.map((k) => <button key={k.id} onClick={() => { setActive(k.id); setExam(''); }} className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${active === k.id ? 'bg-white text-navy-900' : 'bg-white/10 hover:bg-white/20'}`}><Avatar name={fullName(k)} size={26} />{k.firstName} • {k.grade?.name}-{k.section?.name}</button>)}</div>}
       </motion.div>
       {!d ? <Spinner /> : (
@@ -101,7 +102,7 @@ export function ParentPortal() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Avatar name={fullName(s)} src={s.photoUrl} size={64} />
             <div className="flex-1"><h2 className="text-xl font-bold text-navy-900">{fullName(s)}</h2><p className="text-sm text-slate-500">Class {s.grade?.name}-{s.section?.name} • Roll {s.rollNo} • {s.admissionNo}</p>{s.section?.classTeacher && <p className="text-sm text-slate-500">Class teacher: <b>{fullName(s.section.classTeacher)}</b></p>}</div>
-            <button className="btn-outline" onClick={() => setLeave(true)}><Plus size={16} /> Apply leave</button>
+            {user.role === 'PARENT' && <button className="btn-outline" onClick={() => setLeave(true)}><Plus size={16} /> Apply leave</button>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Attendance" value={d.attendance.percent != null ? `${d.attendance.percent}%` : '—'} sub={`${d.attendance.PRESENT || 0} present of ${d.attendance.total} days`} icon={ClipboardCheck} color="emerald" />
@@ -143,7 +144,7 @@ export function ParentPortal() {
               {rc && <><div className="flex justify-end"><button className="btn-outline" onClick={() => window.print()}><Printer size={16} /> Print</button></div><ReportCardView data={rc} /></>}
             </div>
           )}
-          {tab === 'homework' && <div className="grid gap-4 md:grid-cols-2">{!d.homework.length ? <Card><Empty /></Card> : d.homework.map((h) => <motion.div key={h.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card p-5"><div className="flex items-center justify-between"><Badge status="NEW">{h.subject.name}</Badge><span className={`text-xs font-semibold ${new Date(h.dueDate) < new Date() ? 'text-rose-600' : 'text-slate-500'}`}>Due {fmtDate(h.dueDate)}</span></div><h3 className="mt-3 font-semibold text-navy-900">{h.title}</h3><p className="mt-1 text-sm text-slate-500">{h.description}</p><p className="mt-3 text-xs text-slate-400">{h.teacher && fullName(h.teacher)} • {fmtDate(h.assignedDate)}</p></motion.div>)}</div>}
+          {tab === 'homework' && <HomeworkFamily studentId={active} />}
           {tab === 'timetable' && (
             <Card pad={false}><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm">
               <thead><tr className="bg-navy-900 text-white"><th className="p-3 text-left">Day</th>{[1, 2, 3, 4, 5, 6, 7].map((p) => <th key={p} className="p-3">P{p}</th>)}</tr></thead>

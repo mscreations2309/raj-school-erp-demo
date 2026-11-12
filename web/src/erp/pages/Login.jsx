@@ -13,6 +13,7 @@ const DEMO = [
   ['Reception', 'reception@rajschool.in', 'Reception@123', Users],
   ['Librarian', 'library@rajschool.in', 'Library@123', BookOpen],
   ['Parent', '9876543210', '9876543210', UserRound],
+  ['Student', 'student@rajschool.in', 'Student@123', GraduationCap],
   ['RnY Super Admin', 'admin@rnygroups.com', 'Admin@123', ShieldCheck],
 ];
 
@@ -59,9 +60,9 @@ export default function Login() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-slate-500 lg:hidden"><ArrowLeft size={16} /> Website</Link>
           <h1 className="text-3xl font-bold text-navy-900">Welcome back</h1>
-          <p className="mt-2 text-slate-500">Sign in with your email or registered mobile number.</p>
+          <p className="mt-2 text-slate-500">Staff: email • Parents: mobile number • Students: admission number</p>
           <form onSubmit={submit} className="mt-8 space-y-5">
-            <div><label className="label">Email or mobile</label><input className="input py-3" autoFocus required value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} placeholder="you@school.in or 98XXXXXXXX" /></div>
+            <div><label className="label">Email or mobile</label><input className="input py-3" autoFocus required value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} placeholder="Email, mobile or admission no." /></div>
             <div>
               <label className="label">Password</label>
               <div className="relative"><input type={show ? 'text' : 'password'} className="input py-3 pr-11" required value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} /><button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>

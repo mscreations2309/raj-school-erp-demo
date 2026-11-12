@@ -12,7 +12,8 @@ const FRONT = [...ADMIN, 'RECEPTIONIST'];
 export const NAV = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/app', roles: [...ADMIN, 'ACCOUNTANT', 'RECEPTIONIST', 'LIBRARIAN'], end: true },
   { label: 'My Dashboard', icon: Home, to: '/app/teacher', roles: ['TEACHER'] },
-  { label: 'My Child', icon: Home, to: '/app/portal', roles: ['PARENT', 'STUDENT'] },
+  { label: 'My Child', icon: Home, to: '/app/portal', roles: ['PARENT'] },
+  { label: 'My Dashboard', icon: Home, to: '/app/portal', roles: ['STUDENT'] },
   {
     label: 'Students', icon: Users, module: 'students', roles: [...FRONT, 'TEACHER', 'ACCOUNTANT'], children: [
       { label: 'All Students', to: '/app/students' },

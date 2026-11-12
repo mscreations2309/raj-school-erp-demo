@@ -30,6 +30,7 @@ const O = () => import('./erp/pages/Ops');
 const P = () => import('./erp/pages/Portal');
 const PL = () => import('./erp/pages/Platform');
 const RecycleBin = lazy(() => import('./erp/pages/RecycleBin'));
+const HomeworkReview = lazy(() => import('./erp/pages/HomeworkReview'));
 
 const pages = {
   StudentsList: L(S, 'StudentsList'), StudentForm: L(S, 'StudentForm'), StudentProfile: L(S, 'StudentProfile'), PromoteStudents: L(S, 'PromoteStudents'),
@@ -119,6 +120,7 @@ export default function App() {
           <Route path="notices" element={<p.Notices />} />
           <Route path="messages" element={<p.Messages />} />
           <Route path="homework" element={<p.Homework />} />
+          <Route path="homework/:id" element={<HomeworkReview />} />
           <Route path="routes" element={<p.RoutesPage />} />
           <Route path="vehicles" element={<p.Vehicles />} />
           <Route path="hostels" element={<p.Hostels />} />

@@ -35,9 +35,11 @@ export function StudentsList() {
   useEffect(() => { const id = setTimeout(() => { setQd(q); setPage(1); }, 300); return () => clearTimeout(id); }, [q]);
   const params = { page, pageSize: 25, q: qd || undefined, sectionId: sectionId || undefined, status: status || undefined, gender: gender || undefined };
   const { data, loading } = useFetch('/students', params);
+  const [logins, setLogins] = useState(null);
   return (
     <div>
       <PageHeader title="Students" subtitle={data ? `${data.total} students` : ''} icon={Users} actions={<>
+        {sectionId && is('SCHOOL_ADMIN', 'PRINCIPAL', 'RECEPTIONIST') && <button className="btn-outline" onClick={async () => { try { const { data: r } = await api.post('/students/student-logins', { sectionId }); setLogins(r); } catch (e) { toast.error(errMsg(e)); } }}><KeyRound size={16} /> Student logins for class</button>}
         <button className="btn-outline" onClick={() => download(`/students/export?${new URLSearchParams(Object.entries(params).filter(([k, v]) => v && !['page', 'pageSize'].includes(k))).toString()}`, 'students.csv')}><Download size={16} /> Export</button>
         {is('SCHOOL_ADMIN', 'PRINCIPAL', 'RECEPTIONIST') && <Link to="/app/students/new" className="btn-primary"><Plus size={16} /> Admit Student</Link>}
       </>} />
@@ -70,6 +72,10 @@ export function StudentsList() {
         )}
         {data && <Pagination page={page} pageSize={25} total={data.total} onPage={setPage} />}
       </Card>
+      <Modal open={!!logins} onClose={() => setLogins(null)} title="Student logins" size="lg" footer={<button className="btn-primary" onClick={() => window.print()}>Print</button>}>
+        {logins && <div className="print-area"><p className="mb-3 text-sm text-slate-600">{logins.created} new login(s) created. Students sign in at <b>{location.origin}/login</b> with their <b>admission number</b>. Default password = admission number (existing logins keep their current password).</p>
+          <table className="table-x"><thead><tr><th>Roll</th><th>Student</th><th>Login (admission no.)</th><th>Password</th></tr></thead><tbody>{logins.items.map((i) => <tr key={i.login}><td>{i.rollNo}</td><td>{i.name}</td><td className="font-mono">{i.login}</td><td className="font-mono">{i.password || <span className="text-xs text-slate-400">unchanged</span>}</td></tr>)}</tbody></table></div>}
+      </Modal>
     </div>
   );
 }
@@ -193,6 +199,7 @@ export function StudentProfile() {
             {canWrite && <Link to={`/app/students/${id}/edit`} className="btn-outline"><Pencil size={15} /> Edit</Link>}
             {is('SCHOOL_ADMIN', 'PRINCIPAL', 'ACCOUNTANT', 'RECEPTIONIST') && <Link to={`/app/fees/collect?studentId=${id}`} className="btn-primary"><Wallet size={15} /> Collect fee</Link>}
             {canWrite && <button className="btn-outline" onClick={resetLogin}><KeyRound size={15} /> Parent login</button>}
+            {canWrite && <button className="btn-outline" onClick={async () => { try { const { data } = await api.post(`/students/${id}/student-login`); setLogin({ student: true, login: data.login, email: data.email, password: data.password }); } catch (e) { toast.error(errMsg(e)); } }}><KeyRound size={15} /> Student login</button>}
             {canWrite && s.status === 'ACTIVE' && <button className="btn-outline text-rose-600" onClick={() => setTcOpen(true)}><FileText size={15} /> Issue TC</button>}
             {is('SCHOOL_ADMIN', 'PRINCIPAL') && <button className="btn-outline text-rose-600" onClick={() => setDelStudent(true)}><Trash2 size={15} /> Delete</button>}
           </div>
@@ -275,7 +282,7 @@ export function StudentProfile() {
       <DeleteDialog open={!!delDoc} onClose={() => setDelDoc(null)} what={`Document "${delDoc?.name}"`} busy={busy} onConfirm={async (reason) => { setBusy(true); try { await api.delete(`/students/${id}/documents/${delDoc.id}`, { data: { reason } }); toast.success('Moved to Recycle Bin'); setDelDoc(null); reload(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); } }} />
       <DeleteDialog open={delStudent} onClose={() => setDelStudent(false)} what={`${fullName(s)} (${s.admissionNo}) with all fees, attendance, marks and documents — student & parent logins will be blocked`} busy={busy} onConfirm={async (reason) => { setBusy(true); try { await api.delete(`/students/${id}`, { data: { reason } }); toast.success('Student moved to Recycle Bin'); nav('/app/students'); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); } }} />
       <Modal open={!!login} onClose={() => setLogin(null)} title="Parent portal login" size="sm">
-        {login && <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Login (mobile): <b>{login.login}</b><br />Password: <b>{login.password}</b><p className="mt-2 text-xs">Share these with the parent. They can change the password after signing in.</p></div>}
+        {login && <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{login.student ? <>Student login — admission no.: <b>{login.login}</b><br />or email: <b>{login.email}</b></> : <>Login (mobile): <b>{login.login}</b></>}<br />Password: <b>{login.password}</b><p className="mt-2 text-xs">Share these with the {login.student ? 'student' : 'parent'}. They can change the password after signing in.</p></div>}
       </Modal>
     </div>
   );

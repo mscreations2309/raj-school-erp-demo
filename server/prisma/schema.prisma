@@ -60,56 +60,57 @@ model School {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  users             User[]
-  subscriptions     Subscription[]
-  saasInvoices      SaasInvoice[]
-  auditLogs         AuditLog[]
-  academicYears     AcademicYear[]
-  grades            Grade[]
-  sections          Section[]
-  subjects          Subject[]
-  sectionSubjects   SectionSubject[]
-  timetable         TimetableSlot[]
-  events            Event[]
-  students          Student[]
-  studentDocs       StudentDocument[]
-  staff             Staff[]
-  studentAttendance StudentAttendance[]
-  staffAttendance   StaffAttendance[]
-  leaves            LeaveRequest[]
-  exams             Exam[]
-  examSchedules     ExamSchedule[]
-  marks             Mark[]
-  feeHeads          FeeHead[]
-  feeStructures     FeeStructure[]
-  feeInvoices       FeeInvoice[]
-  feePayments       FeePayment[]
-  concessions       Concession[]
-  expenses          Expense[]
-  payslips          Payslip[]
-  enquiries         Enquiry[]
-  applications      AdmissionApplication[]
-  notices           Notice[]
-  messages          Message[]
-  homework          Homework[]
-  vehicles          Vehicle[]
-  routes            TransportRoute[]
-  hostels           Hostel[]
-  hostelAllocations HostelAllocation[]
-  books             Book[]
-  bookIssues        BookIssue[]
-  inventoryItems    InventoryItem[]
-  siteContent       SiteContent[]
-  banners           Banner[]
-  leaders           Leader[]
-  gallery           GalleryItem[]
-  stats             Stat[]
-  facilities        Facility[]
-  testimonials      Testimonial[]
-  contactPersons    ContactPerson[]
-  disclosures       DisclosureItem[]
-  boardResults      BoardResult[]
-  tcs               TransferCertificate[]
+  users               User[]
+  subscriptions       Subscription[]
+  saasInvoices        SaasInvoice[]
+  auditLogs           AuditLog[]
+  academicYears       AcademicYear[]
+  grades              Grade[]
+  sections            Section[]
+  subjects            Subject[]
+  sectionSubjects     SectionSubject[]
+  timetable           TimetableSlot[]
+  events              Event[]
+  students            Student[]
+  studentDocs         StudentDocument[]
+  staff               Staff[]
+  studentAttendance   StudentAttendance[]
+  staffAttendance     StaffAttendance[]
+  leaves              LeaveRequest[]
+  exams               Exam[]
+  examSchedules       ExamSchedule[]
+  marks               Mark[]
+  feeHeads            FeeHead[]
+  feeStructures       FeeStructure[]
+  feeInvoices         FeeInvoice[]
+  feePayments         FeePayment[]
+  concessions         Concession[]
+  expenses            Expense[]
+  payslips            Payslip[]
+  enquiries           Enquiry[]
+  applications        AdmissionApplication[]
+  notices             Notice[]
+  messages            Message[]
+  homework            Homework[]
+  vehicles            Vehicle[]
+  routes              TransportRoute[]
+  hostels             Hostel[]
+  hostelAllocations   HostelAllocation[]
+  books               Book[]
+  bookIssues          BookIssue[]
+  inventoryItems      InventoryItem[]
+  siteContent         SiteContent[]
+  banners             Banner[]
+  leaders             Leader[]
+  gallery             GalleryItem[]
+  stats               Stat[]
+  facilities          Facility[]
+  testimonials        Testimonial[]
+  contactPersons      ContactPerson[]
+  disclosures         DisclosureItem[]
+  boardResults        BoardResult[]
+  tcs                 TransferCertificate[]
+  homeworkSubmissions HomeworkSubmission[]
 }
 
 model Subscription {
@@ -384,16 +385,17 @@ model Student {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  documents         StudentDocument[]
-  attendance        StudentAttendance[]
-  marks             Mark[]
-  invoices          FeeInvoice[]
-  payments          FeePayment[]
-  concessions       Concession[]
-  leaves            LeaveRequest[]
-  hostelAllocations HostelAllocation[]
-  bookIssues        BookIssue[]
-  tcs               TransferCertificate[]
+  documents           StudentDocument[]
+  attendance          StudentAttendance[]
+  marks               Mark[]
+  invoices            FeeInvoice[]
+  payments            FeePayment[]
+  concessions         Concession[]
+  leaves              LeaveRequest[]
+  hostelAllocations   HostelAllocation[]
+  bookIssues          BookIssue[]
+  tcs                 TransferCertificate[]
+  homeworkSubmissions HomeworkSubmission[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId, sectionId])
@@ -771,20 +773,58 @@ model Message {
 }
 
 model Homework {
-  id            String   @id @default(cuid())
-  schoolId      String
-  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  sectionId     String
-  section       Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  subjectId     String
-  subject       Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId     String?
-  teacher       Staff?   @relation(fields: [teacherId], references: [id])
-  title         String
-  description   String?
-  attachmentUrl String?
-  assignedDate  DateTime @default(now())
-  dueDate       DateTime
+  id              String               @id @default(cuid())
+  schoolId        String
+  school          School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  sectionId       String
+  section         Section              @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subjectId       String
+  subject         Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId       String?
+  teacher         Staff?               @relation(fields: [teacherId], references: [id])
+  title           String
+  description     String?
+  attachmentUrl   String?
+  assignedDate    DateTime             @default(now())
+  dueDate         DateTime
+  maxMarks        Float? // optional — teacher can grade with marks and/or grade
+  allowSubmission Boolean              @default(true) // students upload their work online
+  submissions     HomeworkSubmission[]
+}
+
+// Student's homework submission → teacher evaluation → publish → parent acknowledgement
+model HomeworkSubmission {
+  id              String    @id @default(cuid())
+  schoolId        String
+  school          School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  homeworkId      String
+  homework        Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  text            String?
+  files           String    @default("[]") // JSON [{ name, url }]
+  submittedAt     DateTime  @default(now())
+  submittedBy     String? // name of student / parent who uploaded
+  submittedByRole String?
+  isLate          Boolean   @default(false)
+  attempts        Int       @default(1)
+  status          String    @default("SUBMITTED") // SUBMITTED | RESUBMIT | EVALUATED | PUBLISHED
+  marks           Float?
+  grade           String?
+  feedback        String?
+  checkedFiles    String    @default("[]") // teacher's checked copy JSON [{ name, url }]
+  evaluatedById   String?
+  evaluatedByName String?
+  evaluatedAt     DateTime?
+  publishedAt     DateTime?
+  parentAckAt     DateTime?
+  parentAckById   String?
+  parentAckByName String?
+  parentAckNote   String?
+  history         String    @default("[]") // JSON timeline
+
+  @@unique([homeworkId, studentId])
+  @@index([schoolId, status])
 }
 
 // ───────────────────────────── TRANSPORT ─────────────────────────────

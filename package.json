@@ -10,7 +10,8 @@
     "reset-db": "npm --prefix server run db:reset",
     "test:api": "node server/scripts/smoke-test.js",
     "test:ui": "node tools/ui-test.js",
-    "test:recycle": "node server/scripts/recycle-test.js"
+    "test:recycle": "node server/scripts/recycle-test.js",
+    "test:homework": "node server/scripts/homework-test.js"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

@@ -38,6 +38,13 @@ The login page also has one-click demo buttons for every role.
 
 **SaaS (multi-tenant):** every record is isolated by `schoolId`; RnY super-admin console to onboard schools in one click (auto-provisions classes, subjects, fee heads, website), plans with module gating (Starter / Growth / Enterprise), subscriptions & invoices, suspend/reactivate, "open ERP as school", per-school websites via subdomain, custom domain or `/?school=<slug>`.
 
+## Homework workflow
+1. **Student login** — Students → select a class → "Student logins for class" (or "Student login" on a profile). Students sign in with their **admission number** (default password = admission number).
+2. **Student submits** text and/or photos/PDF; late submissions are flagged; they can re-submit until checked.
+3. **Teacher checks** (Communication → Homework → "Check work"): marks, grade, feedback, checked copy, or "Ask to redo".
+4. **Publish** — results stay hidden until published; student and parent get an in-app message.
+5. **Parent acknowledges** from the parent portal (optional note); the teacher sees who acknowledged and when.
+
 ## Data safety — nothing is ever erased
 - **Every Delete = Move to Recycle Bin** with a mandatory reason. The record *and everything linked to it* (e.g. a student's fees, attendance, marks, documents) is stored as a complete copy with the employee's name, role, employee ID, date/time and reason.
 - **Restore** puts everything back exactly (same IDs, same links) and unlocks any logins.

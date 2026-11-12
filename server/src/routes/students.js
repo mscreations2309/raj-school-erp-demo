@@ -159,6 +159,44 @@ r.delete('/:id', authorize(ADMINS), ah(async (req, res) => {
   res.json({ ok: true, recycleBinEntryId: entry.id });
 }));
 
+/** Student portal login. Username: admission number (or the generated email). Default password: admission number. */
+async function ensureStudentLogin(schoolId, s, reset = false) {
+  const password = s.admissionNo;
+  const passwordHash = await bcrypt.hash(password, 8);
+  if (s.userId) {
+    const u = await prisma.user.findUnique({ where: { id: s.userId } });
+    if (u) {
+      if (reset) await prisma.user.update({ where: { id: u.id }, data: { passwordHash, isActive: true } });
+      return { login: s.admissionNo, email: u.email, password: reset ? password : null, existed: true };
+    }
+  }
+  const email = `${s.admissionNo.toLowerCase().replace(/[^a-z0-9]/g, '')}@student.local`;
+  const u = await prisma.user.upsert({
+    where: { schoolId_email: { schoolId, email } },
+    create: { schoolId, role: 'STUDENT', name: `${s.firstName} ${s.lastName || ''}`.trim(), email, passwordHash },
+    update: { passwordHash, isActive: true, role: 'STUDENT' },
+  });
+  await prisma.student.update({ where: { id: s.id }, data: { userId: u.id } });
+  return { login: s.admissionNo, email, password, existed: false };
+}
+
+r.post('/:id/student-login', authorize(WRITE), ah(async (req, res) => {
+  const s = await prisma.student.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
+  if (!s) throw notFound();
+  const out = await ensureStudentLogin(req.schoolId, s, true);
+  audit(req, 'STUDENT_LOGIN', 'Student', s.id);
+  res.json(out);
+}));
+
+r.post('/student-logins', authorize(WRITE), ah(async (req, res) => {
+  const { sectionId } = z.object({ sectionId: z.string() }).parse(req.body);
+  const students = await prisma.student.findMany({ where: { schoolId: req.schoolId, sectionId, status: 'ACTIVE' }, orderBy: [{ rollNo: 'asc' }] });
+  const items = [];
+  for (const s of students) items.push({ name: `${s.firstName} ${s.lastName || ''}`.trim(), rollNo: s.rollNo, ...(await ensureStudentLogin(req.schoolId, s, false)) });
+  audit(req, 'BULK_STUDENT_LOGINS', 'Section', sectionId, { count: items.length });
+  res.json({ created: items.filter((i) => !i.existed).length, items });
+}));
+
 r.post('/:id/parent-login', authorize(WRITE), ah(async (req, res) => {
   const s = await prisma.student.findFirst({ where: { id: req.params.id, schoolId: req.schoolId } });
   if (!s) throw notFound();

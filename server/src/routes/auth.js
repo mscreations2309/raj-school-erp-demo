@@ -25,6 +25,11 @@ r.post(
     const { email, password, school } = loginSchema.parse(req.body);
     // Users can log in with email OR registered mobile number (parents usually use mobile)
     let candidates = await prisma.user.findMany({ where: { OR: [{ email }, { phone: email }] }, include: { school: true } });
+    if (!candidates.length) {
+      // Students can sign in with their admission number
+      const st = await prisma.student.findMany({ where: { admissionNo: { in: [email, email.toUpperCase()] }, userId: { not: null } }, select: { userId: true } });
+      if (st.length) candidates = await prisma.user.findMany({ where: { id: { in: st.map((x) => x.userId) } }, include: { school: true } });
+    }
     if (school) candidates = candidates.filter((u) => !u.school || u.school.slug === school);
     if (candidates.length > 1) throw badRequest('This email is registered with multiple schools. Please select your school.');
     const user = candidates[0];
