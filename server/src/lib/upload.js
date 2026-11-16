@@ -6,7 +6,7 @@ import { prisma } from './prisma.js';
 
 export const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
 
-export const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 50;
+export const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 15;
 
 const ALLOWED = /\.(png|jpe?g|webp|gif|pdf|svg|xlsx?|csv|docx?)$/i;
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.pdf': 'application/pdf' };
