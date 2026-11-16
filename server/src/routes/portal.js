@@ -7,6 +7,7 @@ import { authorize } from '../lib/auth.js';
 import { buildReportCard } from './exams.js';
 import { recordPayment, receiptData, demoGatewayRef } from './fees.js';
 import { audit } from '../lib/audit.js';
+import { tagInclude } from './profile.js';
 
 const r = Router();
 const FAMILY = ['PARENT', 'STUDENT'];
@@ -15,6 +16,7 @@ async function ownStudent(req, id) {
   const s = await prisma.student.findFirst({
     where: { id, schoolId: req.schoolId },
     include: {
+      ...tagInclude,
       grade: true,
       section: { include: { classTeacher: { select: { firstName: true, lastName: true, phone: true, email: true } } } },
       transportStop: { include: { route: { include: { vehicle: true } } } },
@@ -29,7 +31,7 @@ async function ownStudent(req, id) {
 
 r.get('/children', authorize(FAMILY), ah(async (req, res) => {
   const where = req.user.role === 'PARENT' ? { parentUserId: req.user.id } : { userId: req.user.id };
-  const items = await prisma.student.findMany({ where: { ...where, schoolId: req.schoolId, status: { not: 'LEFT' } }, include: { grade: true, section: true }, orderBy: { dob: 'asc' } });
+  const items = await prisma.student.findMany({ where: { ...where, schoolId: req.schoolId, status: { not: 'LEFT' } }, include: { grade: true, section: true, ...tagInclude }, orderBy: { dob: 'asc' } });
   res.json({ items });
 }));
 

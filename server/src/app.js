@@ -22,6 +22,7 @@ import feeRoutes from './routes/fees.js';
 import opsRoutes from './routes/ops.js';
 import portalRoutes from './routes/portal.js';
 import { recycleRouter } from './routes/recycle.js';
+import profileRoutes from './routes/profile.js';
 import { teacherRoutes as homeworkTeacher, familyRoutes as homeworkFamily } from './routes/homework.js';
 
 export function createApp() {
@@ -68,6 +69,7 @@ export function createApp() {
   tenant.use('/portal', homeworkFamily);
   tenant.use('/portal', portalRoutes);
   tenant.use('/recycle-bin', recycleRouter());
+  tenant.use('/', profileRoutes);
   tenant.use('/', homeworkTeacher);
   tenant.use('/', hrRoutes);
   tenant.use('/', opsRoutes);

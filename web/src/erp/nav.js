@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, UserPlus, GraduationCap, ClipboardCheck, BookMarked, Wallet, PieChart, Briefcase, Megaphone,
-  Bus, BedDouble, Library, Boxes, Globe, Settings, School, Building2, Receipt, Home, Trash2,
+  Bus, BedDouble, Library, Boxes, Globe, Settings, School, Building2, Receipt, Home, Trash2, Camera,
 } from 'lucide-react';
 
 const ADMIN = ['SCHOOL_ADMIN', 'PRINCIPAL'];
@@ -20,6 +20,7 @@ export const NAV = [
       { label: 'Admit Student', to: '/app/students/new', roles: FRONT },
       { label: 'Promote / Transfer', to: '/app/students/promote', roles: ADMIN },
       { label: 'Transfer Certificates', to: '/app/tcs', roles: FRONT },
+      { label: 'Roles & Activities List', to: '/app/student-tags', roles: ADMIN },
     ],
   },
   {
@@ -119,6 +120,7 @@ export const NAV = [
       { label: 'Board Results', to: '/app/cms/results' },
     ],
   },
+  { label: 'Photo Approvals', icon: Camera, to: '/app/photo-approvals', roles: [...ADMIN, 'TEACHER'] },
   { label: 'Recycle Bin', icon: Trash2, to: '/app/recycle-bin', roles: STAFF },
   {
     label: 'Settings', icon: Settings, roles: ADMIN, children: [

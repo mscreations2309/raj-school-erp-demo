@@ -5,6 +5,8 @@ import { Users, Plus, Download, Search, Pencil, KeyRound, FileText, Upload, Tras
 import { api, errMsg, download } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { fmtDate, money, fullName, pretty, toInputDate } from '../../lib/format';
+import StudentBadges from '../components/StudentBadges';
+import StudentTagsCard from '../components/StudentTagsCard';
 import { PageHeader, Card, Spinner, Empty, Badge, Pagination, useFetch, Modal, Field, Tabs, Avatar, Confirm, ErrorBox, Stat, DeleteDialog } from '../components/ui';
 
 export function useSections() {
@@ -57,7 +59,7 @@ export function StudentsList() {
               <tbody className={loading ? 'opacity-50' : ''}>
                 {data.items.map((s) => (
                   <tr key={s.id} className="cursor-pointer" onClick={() => nav(`/app/students/${s.id}`)}>
-                    <td><div className="flex items-center gap-3"><Avatar name={fullName(s)} src={s.photoUrl} /><div><div className="font-semibold text-navy-900">{fullName(s)}</div><div className="text-xs text-slate-400">DOB {fmtDate(s.dob)}{s.isHosteller ? ' • Hosteller' : ''}</div></div></div></td>
+                    <td><div className="flex items-center gap-3"><Avatar name={fullName(s)} src={s.photoUrl} /><div><div className="font-semibold text-navy-900">{fullName(s)}</div><div className="text-xs text-slate-400">DOB {fmtDate(s.dob)}{s.isHosteller ? ' • Hosteller' : ''}</div><StudentBadges student={s} size="sm" className="mt-1" /></div></div></td>
                     <td className="font-mono text-xs">{s.admissionNo}</td>
                     <td>{s.grade?.name}-{s.section?.name}</td>
                     <td>{s.rollNo}</td>
@@ -84,7 +86,7 @@ const SECTIONS = [
   ['Student details', [
     ['firstName', 'First name', 'text', true], ['lastName', 'Last name'], ['gender', 'Gender', ['MALE', 'FEMALE', 'OTHER'], true], ['dob', 'Date of birth', 'date'],
     ['sectionId', 'Class & section', 'section', true], ['rollNo', 'Roll no.', 'number'], ['admissionNo', 'Admission no. (auto if blank)'], ['admissionDate', 'Admission date', 'date'],
-    ['bloodGroup', 'Blood group', ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']], ['category', 'Category', ['GEN', 'OBC', 'SC', 'ST', 'EWS']], ['religion', 'Religion'], ['aadhaar', 'Aadhaar no.'],
+    ['bloodGroup', 'Blood group', ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']], ['category', 'Category', ['GEN', 'OBC', 'SC', 'ST', 'EWS']], ['house', 'House', ['Red', 'Blue', 'Green', 'Yellow']], ['religion', 'Religion'], ['aadhaar', 'Aadhaar no.'],
     ['previousSchool', 'Previous school'], ['status', 'Status', ['ACTIVE', 'TC_ISSUED', 'ALUMNI', 'LEFT']], ['photoUrl', 'Photo URL'],
   ]],
   ['Parents / guardian', [
@@ -187,15 +189,16 @@ export function StudentProfile() {
     <div className="space-y-6">
       <div className="card overflow-hidden">
         <div className="h-28 bg-gradient-to-r from-navy-800 via-navy-700 to-brand-700" />
-        <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-end">
-          <div className="-mt-12 rounded-2xl border-4 border-white bg-white shadow"><Avatar name={fullName(s)} src={s.photoUrl} size={96} /></div>
-          <div className="flex-1">
+        <div className="flex flex-wrap items-end gap-x-5 gap-y-4 px-6 pb-6">
+          <div className="-mt-12 shrink-0 rounded-2xl border-4 border-white bg-white shadow"><Avatar name={fullName(s)} src={s.photoUrl} size={96} /></div>
+          <div className="min-w-[280px] flex-1">
             <h1 className="text-2xl font-bold text-navy-900">{fullName(s)}</h1>
+            <StudentBadges student={s} className="mt-2" />
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
               <span className="font-mono">{s.admissionNo}</span>•<span>Class {s.grade?.name}-{s.section?.name}</span>•<span>Roll {s.rollNo}</span><Badge status={s.status} />{s.isHosteller && <Badge status="NEW">Hosteller</Badge>}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap gap-2 border-t pt-4">
             {canWrite && <Link to={`/app/students/${id}/edit`} className="btn-outline"><Pencil size={15} /> Edit</Link>}
             {is('SCHOOL_ADMIN', 'PRINCIPAL', 'ACCOUNTANT', 'RECEPTIONIST') && <Link to={`/app/fees/collect?studentId=${id}`} className="btn-primary"><Wallet size={15} /> Collect fee</Link>}
             {canWrite && <button className="btn-outline" onClick={resetLogin}><KeyRound size={15} /> Parent login</button>}
@@ -217,6 +220,7 @@ export function StudentProfile() {
 
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-2">
+          <div className="lg:col-span-2"><StudentTagsCard studentId={id} onChange={reload} /></div>
           <Card title="Personal details">
             <dl className="grid grid-cols-2 gap-4 text-sm">
               {[['Gender', pretty(s.gender)], ['Date of birth', fmtDate(s.dob)], ['Blood group', s.bloodGroup], ['Category', s.category], ['Religion', s.religion], ['Aadhaar', s.aadhaar], ['Admission date', fmtDate(s.admissionDate)], ['Previous school', s.previousSchool]].map(([k, v]) => <div key={k}><dt className="text-xs text-slate-400">{k}</dt><dd className="font-medium">{v || '—'}</dd></div>)}

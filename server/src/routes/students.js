@@ -9,11 +9,12 @@ import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
 import { toCSV } from '../lib/csv.js';
 import { moveToBin } from '../lib/recycle.js';
+import { tagInclude } from './profile.js';
 
 const r = Router();
 r.use(requireModule('students'));
 const WRITE = [...ADMINS, 'RECEPTIONIST'];
-const inc = { grade: true, section: true, parentUser: { select: { id: true, name: true, phone: true, email: true } } };
+const inc = { grade: true, section: true, parentUser: { select: { id: true, name: true, phone: true, email: true } } , ...tagInclude };
 
 function buildWhere(req) {
   const q = req.query;

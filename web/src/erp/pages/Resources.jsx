@@ -269,3 +269,12 @@ export const CmsResults = () => (
     columns={[{ key: 'className', label: 'Class' }, { key: 'year', label: 'Year' }, { key: 'registered', label: 'Registered' }, { key: 'passed', label: 'Passed' }, { key: 'percent', label: 'Pass %' }]}
     fields={[{ name: 'className', label: 'Class', type: 'select', options: ['X', 'XII'], required: true }, { name: 'year', label: 'Year', type: 'number', required: true }, { name: 'registered', label: 'Registered', type: 'number', required: true }, { name: 'passed', label: 'Passed', type: 'number', required: true }, { name: 'percent', label: 'Pass %', type: 'number', required: true }, { name: 'remarks', label: 'Remarks' }]} />
 );
+
+export const StudentTagTypes = () => (
+  <ResourcePage title="Roles & Activities" subtitle="Student roles (ribbons) and activity groups (chips). Admin & Principal can always assign; set who else may assign each." icon={Award} endpoint="/student-tag-types" writeRoles={ADMIN} pageSize={50}
+    filters={[{ name: 'kind', label: 'Type', options: [['ROLE', 'Role'], ['ACTIVITY', 'Activity']] }]}
+    columns={[{ label: 'Name', render: (t) => <span className="font-semibold" style={{ color: t.color }}>{t.emoji} {t.name}</span> }, { key: 'kind', label: 'Type', type: 'status' }, { label: 'Who can assign', render: (t) => ({ ADMIN: 'Admin / Principal', CLASS_TEACHER: 'Class teacher', INCHARGE: 'In-charge teacher' })[t.assignableBy] }, { key: 'needsHouse', label: 'Needs house', type: 'bool' }, { label: 'Students', render: (t) => t._count.tags }, { key: 'isActive', label: 'Active', type: 'bool' }]}
+    fields={[{ name: 'name', label: 'Name', required: true }, { name: 'kind', label: 'Shown as', type: 'select', options: [['ROLE', 'Role — ⭐ ribbon'], ['ACTIVITY', 'Activity — chip']], required: true }, { name: 'emoji', label: 'Emoji / icon', placeholder: '⭐' }, { name: 'color', label: 'Colour', inputType: 'color', default: '#b45309' },
+      { name: 'assignableBy', label: 'Who else can assign', type: 'select', options: [['ADMIN', 'Only Admin / Principal'], ['CLASS_TEACHER', 'Class teacher of the student'], ['INCHARGE', 'In-charge teacher (NCC officer, Scout master…)']], required: true },
+      { name: 'inchargeStaffId', label: 'In-charge teacher', type: 'select', optionsFrom: staffOpt, hint: 'Only for "In-charge teacher"' }, { name: 'needsHouse', label: 'Linked to a house', type: 'bool', checkLabel: 'Ask for the house (e.g. House Captain)' }, { name: 'order', label: 'Display order', type: 'number' }, { name: 'isActive', label: 'Active', type: 'bool', default: true }]} />
+);

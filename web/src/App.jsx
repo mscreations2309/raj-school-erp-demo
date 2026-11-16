@@ -31,6 +31,7 @@ const P = () => import('./erp/pages/Portal');
 const PL = () => import('./erp/pages/Platform');
 const RecycleBin = lazy(() => import('./erp/pages/RecycleBin'));
 const HomeworkReview = lazy(() => import('./erp/pages/HomeworkReview'));
+const PhotoApprovals = lazy(() => import('./erp/pages/PhotoApprovals'));
 
 const pages = {
   StudentsList: L(S, 'StudentsList'), StudentForm: L(S, 'StudentForm'), StudentProfile: L(S, 'StudentProfile'), PromoteStudents: L(S, 'PromoteStudents'),
@@ -38,7 +39,7 @@ const pages = {
   MarksEntry: L(E, 'MarksEntry'), Results: L(E, 'Results'), ReportCard: L(E, 'ReportCard'),
   FeeDashboard: L(F, 'FeeDashboard'), CollectFee: L(F, 'CollectFee'), Invoices: L(F, 'Invoices'), Payments: L(F, 'Payments'), Dues: L(F, 'Dues'), Receipt: L(F, 'Receipt'), Accounts: L(F, 'Accounts'),
   Classes: L(R, 'Classes'), Subjects: L(R, 'Subjects'), SectionSubjects: L(R, 'SectionSubjects'), AcademicYears: L(R, 'AcademicYears'), Events: L(R, 'Events'), Exams: L(R, 'Exams'), ExamSchedules: L(R, 'ExamSchedules'),
-  FeeHeads: L(R, 'FeeHeads'), FeeStructure: L(R, 'FeeStructure'), Concessions: L(R, 'Concessions'), Expenses: L(R, 'Expenses'), Enquiries: L(R, 'Enquiries'), Notices: L(R, 'Notices'), Homework: L(R, 'Homework'), TCs: L(R, 'TCs'),
+  FeeHeads: L(R, 'FeeHeads'), FeeStructure: L(R, 'FeeStructure'), Concessions: L(R, 'Concessions'), Expenses: L(R, 'Expenses'), Enquiries: L(R, 'Enquiries'), Notices: L(R, 'Notices'), Homework: L(R, 'Homework'), TCs: L(R, 'TCs'), StudentTagTypes: L(R, 'StudentTagTypes'),
   Vehicles: L(R, 'Vehicles'), RoutesPage: L(R, 'RoutesPage'), Hostels: L(R, 'Hostels'), HostelAllocations: L(R, 'HostelAllocations'), Books: L(R, 'Books'), Inventory: L(R, 'Inventory'),
   CmsBanners: L(R, 'CmsBanners'), CmsContent: L(R, 'CmsContent'), CmsLeaders: L(R, 'CmsLeaders'), CmsGallery: L(R, 'CmsGallery'), CmsStats: L(R, 'CmsStats'), CmsFacilities: L(R, 'CmsFacilities'), CmsTestimonials: L(R, 'CmsTestimonials'), CmsContacts: L(R, 'CmsContacts'), CmsDisclosure: L(R, 'CmsDisclosure'), CmsResults: L(R, 'CmsResults'),
   Staff: L(H, 'Staff'), Users: L(H, 'Users'), Leaves: L(H, 'Leaves'), Payroll: L(H, 'Payroll'),
@@ -141,6 +142,8 @@ export default function App() {
           <Route path="settings" element={<p.Settings />} />
           <Route path="audit" element={<p.AuditLog />} />
           <Route path="recycle-bin" element={<RecycleBin />} />
+          <Route path="photo-approvals" element={<PhotoApprovals />} />
+          <Route path="student-tags" element={<p.StudentTagTypes />} />
           <Route path="*" element={<div className="py-20 text-center text-slate-500">Page not found</div>} />
         </Route>
 

@@ -70,7 +70,7 @@ r.put(
   authenticate,
   ah(async (req, res) => {
     const data = z
-      .object({ name: z.string().min(2).optional(), phone: z.string().optional(), avatarUrl: z.string().optional() })
+      .object({ name: z.string().min(2).optional(), phone: z.string().optional() })
       .parse(req.body);
     const user = await prisma.user.update({ where: { id: req.user.id }, data });
     res.json(publicUser(user));

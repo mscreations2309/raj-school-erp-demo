@@ -34,6 +34,10 @@ r.use('/section-subjects', crudRouter('SectionSubject', {
   include: { subject: true, teacher: true, section: { include: { grade: true } } },
   async scopeWhere(req) { if (!isTeacher(req)) return {}; const { staff } = await teacherScope(req); return { teacherId: staff?.id || '__none__' }; },
 }));
+r.use('/student-tag-types', crudRouter('StudentTagType', {
+  module: 'students', read: STAFF_ROLES, write: ADMINS, search: ['name'], filters: ['kind', 'isActive'], orderBy: [{ kind: 'desc' }, { order: 'asc' }],
+  include: { _count: { select: { tags: true } } },
+}));
 r.use('/events', crudRouter('Event', {
   read: ALL_SCHOOL_ROLES, write: FRONT, search: ['title'], filters: ['type', 'isPublic'], orderBy: { startDate: 'asc' },
 }));

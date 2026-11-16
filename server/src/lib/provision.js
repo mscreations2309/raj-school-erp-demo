@@ -1,6 +1,7 @@
 // Creates a ready-to-use tenant: school + admin login + academic year + classes + subjects + fee heads + website basics.
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma.js';
+import { ensureSchoolDefaults } from './schoolDefaults.js';
 
 export const DEFAULT_GRADES = ['Play Group', 'Nursery', 'LKG', 'UKG', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
@@ -88,5 +89,6 @@ export async function provisionSchool({ school: schoolInput, admin, planCode = '
     ],
   });
 
+  await ensureSchoolDefaults(schoolId);
   return { school: created, adminUser, academicYear: year, grades };
 }

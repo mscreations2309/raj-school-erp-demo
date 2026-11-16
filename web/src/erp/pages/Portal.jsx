@@ -10,6 +10,7 @@ import { fmtDate, money, fullName, pretty, isoDay } from '../../lib/format';
 import { Card, Spinner, Empty, useFetch, Badge, Stat, Modal, Tabs, Avatar, Field, ErrorBox } from '../components/ui';
 import { ReportCardView } from './Exams';
 import HomeworkFamily from './HomeworkFamily';
+import StudentBadges from '../components/StudentBadges';
 
 const DOT = { PRESENT: 'bg-emerald-500', ABSENT: 'bg-rose-500', LATE: 'bg-amber-500', HALF_DAY: 'bg-sky-500', LEAVE: 'bg-violet-500' };
 
@@ -95,13 +96,13 @@ export function ParentPortal() {
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-gold-400/20 blur-3xl" />
         <p className="text-sm text-white/70">Namaste, {user.name} 🙏</p>
         <h1 className="mt-1 text-2xl font-bold">{user.role === 'STUDENT' ? 'Student Portal' : 'Parent Portal'}</h1>
-        {kids.items.length > 1 && <div className="mt-5 flex flex-wrap gap-2">{kids.items.map((k) => <button key={k.id} onClick={() => { setActive(k.id); setExam(''); }} className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${active === k.id ? 'bg-white text-navy-900' : 'bg-white/10 hover:bg-white/20'}`}><Avatar name={fullName(k)} size={26} />{k.firstName} • {k.grade?.name}-{k.section?.name}</button>)}</div>}
+        {kids.items.length > 1 && <div className="mt-5 flex flex-wrap gap-2">{kids.items.map((k) => <button key={k.id} onClick={() => { setActive(k.id); setExam(''); }} className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${active === k.id ? 'bg-white text-navy-900' : 'bg-white/10 hover:bg-white/20'}`}><Avatar name={fullName(k)} src={k.photoUrl} size={26} />{k.firstName} • {k.grade?.name}-{k.section?.name}<StudentBadges student={k} size="sm" showHouse={false} /></button>)}</div>}
       </motion.div>
       {!d ? <Spinner /> : (
         <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Avatar name={fullName(s)} src={s.photoUrl} size={64} />
-            <div className="flex-1"><h2 className="text-xl font-bold text-navy-900">{fullName(s)}</h2><p className="text-sm text-slate-500">Class {s.grade?.name}-{s.section?.name} • Roll {s.rollNo} • {s.admissionNo}</p>{s.section?.classTeacher && <p className="text-sm text-slate-500">Class teacher: <b>{fullName(s.section.classTeacher)}</b></p>}</div>
+            <div className="flex-1"><h2 className="text-xl font-bold text-navy-900">{fullName(s)}</h2><StudentBadges student={s} className="my-1.5" /><p className="text-sm text-slate-500">Class {s.grade?.name}-{s.section?.name} • Roll {s.rollNo} • {s.admissionNo}</p>{s.section?.classTeacher && <p className="text-sm text-slate-500">Class teacher: <b>{fullName(s.section.classTeacher)}</b></p>}</div>
             {user.role === 'PARENT' && <button className="btn-outline" onClick={() => setLeave(true)}><Plus size={16} /> Apply leave</button>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

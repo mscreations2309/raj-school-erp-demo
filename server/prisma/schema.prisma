@@ -111,6 +111,9 @@ model School {
   boardResults        BoardResult[]
   tcs                 TransferCertificate[]
   homeworkSubmissions HomeworkSubmission[]
+  studentTagTypes     StudentTagType[]
+  studentTags         StudentTag[]
+  photoRequests       PhotoRequest[]
 }
 
 model Subscription {
@@ -376,6 +379,7 @@ model Student {
   motherPhone      String?
   motherOccupation String?
   isHosteller      Boolean    @default(false)
+  house            String? // Red | Blue | Green | Yellow (houses listed in school settings)
   transportStopId  String?
   transportStop    RouteStop? @relation(fields: [transportStopId], references: [id])
   parentUserId     String?
@@ -395,6 +399,7 @@ model Student {
   hostelAllocations   HostelAllocation[]
   bookIssues          BookIssue[]
   tcs                 TransferCertificate[]
+  tags                StudentTag[]
   homeworkSubmissions HomeworkSubmission[]
 
   @@unique([schoolId, admissionNo])
@@ -1117,4 +1122,70 @@ model TransferCertificate {
   fileUrl     String?
 
   @@unique([schoolId, tcNo])
+}
+
+// ───────────────────────────── STUDENT ROLES, ACTIVITIES & PROFILE PHOTOS ─────────────────────────────
+
+// Editable list of roles (Head Boy, Monitor, House Captain…) and activity groups (NCC, Scouts, Guides…)
+model StudentTagType {
+  id              String       @id @default(cuid())
+  schoolId        String
+  school          School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name            String
+  kind            String       @default("ROLE") // ROLE (shown as a ribbon) | ACTIVITY (shown as a chip)
+  emoji           String?
+  color           String       @default("#b45309")
+  assignableBy    String       @default("ADMIN") // ADMIN | CLASS_TEACHER | INCHARGE  (admin & principal can always assign)
+  inchargeStaffId String? // teacher in charge (NCC officer, Scout master…) when assignableBy = INCHARGE
+  needsHouse      Boolean      @default(false) // e.g. House Captain → pick the house
+  isActive        Boolean      @default(true)
+  order           Int          @default(0)
+  tags            StudentTag[]
+
+  @@unique([schoolId, name])
+}
+
+model StudentTag {
+  id             String         @id @default(cuid())
+  schoolId       String
+  school         School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  typeId         String
+  type           StudentTagType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  house          String?
+  session        String? // e.g. 2026-27
+  fromDate       DateTime       @default(now())
+  toDate         DateTime?
+  note           String?
+  assignedById   String?
+  assignedByName String?
+  createdAt      DateTime       @default(now())
+
+  @@index([schoolId, studentId])
+}
+
+// Profile photo changes wait for approval: student → class teacher, parent → child's class teacher, staff → principal/admin.
+model PhotoRequest {
+  id                 String    @id @default(cuid())
+  schoolId           String
+  school             School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId             String
+  userName           String
+  userRole           String
+  studentId          String? // when the account is a student login
+  staffId            String? // when the account is a staff login
+  photoUrl           String
+  previousUrl        String?
+  approverRole       String // CLASS_TEACHER | ADMIN
+  approverSectionIds String    @default("[]") // class-teacher sections that may approve
+  status             String    @default("PENDING") // PENDING | APPROVED | REJECTED | SUPERSEDED
+  reviewedById       String?
+  reviewedByName     String?
+  reviewedAt         DateTime?
+  reason             String?
+  createdAt          DateTime  @default(now())
+
+  @@index([schoolId, status])
+  @@index([userId])
 }

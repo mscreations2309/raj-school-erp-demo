@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, LogOut, Menu, Search, X, KeyRound, Globe, ArrowLeftRight, Bell, Loader2 } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Search, X, KeyRound, Globe, ArrowLeftRight, Bell, Loader2, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/auth';
 import { api, errMsg } from '../lib/api';
 import { pretty } from '../lib/format';
 import { NAV, PLATFORM_NAV } from './nav';
 import { Avatar, Modal, Field } from './components/ui';
+import MyPhoto from './components/MyPhoto';
 
 function visible(item, user, has) {
   if (item.roles && user.role !== 'SUPER_ADMIN' && !item.roles.includes(user.role)) return false;
@@ -111,6 +112,7 @@ export default function ErpLayout({ platform = false }) {
   const [mobile, setMobile] = useState(false);
   const [menu, setMenu] = useState(false);
   const [pwd, setPwd] = useState(false);
+  const [photo, setPhoto] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
   useEffect(() => { setMobile(false); setMenu(false); }, [loc.pathname]);
@@ -165,7 +167,7 @@ export default function ErpLayout({ platform = false }) {
             {!platform && <Link to="/app/messages" className="btn-ghost" title="Messages"><Bell size={18} /></Link>}
             <div className="relative">
               <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 rounded-xl p-1.5 pr-3 hover:bg-slate-100">
-                <Avatar name={user.name} size={34} />
+                <Avatar name={user.name} src={user.avatarUrl} size={34} />
                 <div className="hidden text-left leading-tight sm:block"><div className="text-sm font-semibold text-navy-900">{user.name}</div><div className="text-[11px] text-slate-500">{pretty(user.role)}</div></div>
                 <ChevronDown size={15} className="text-slate-400" />
               </button>
@@ -173,6 +175,7 @@ export default function ErpLayout({ platform = false }) {
                 {menu && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border bg-white p-1.5 shadow-soft">
                     <div className="border-b px-3 py-2 text-xs text-slate-500">{user.email}</div>
+                    {user.role !== 'SUPER_ADMIN' && <button onClick={() => { setPhoto(true); setMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-50"><Camera size={15} /> My profile photo</button>}
                     <button onClick={() => { setPwd(true); setMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-50"><KeyRound size={15} /> Change password</button>
                     <button onClick={() => { logout(); nav('/login'); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"><LogOut size={15} /> Sign out</button>
                   </motion.div>
@@ -188,6 +191,7 @@ export default function ErpLayout({ platform = false }) {
         </main>
       </div>
       <ChangePassword open={pwd} onClose={() => setPwd(false)} />
+      {photo && <MyPhoto open={photo} onClose={() => setPhoto(false)} />}
     </div>
   );
 }
