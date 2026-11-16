@@ -108,10 +108,16 @@ teacherRoutes.get('/ai/status', authorize(TEACH), (_req, res) => res.json({ enab
 teacherRoutes.post('/homework-submissions/:id/ai-evaluate', requireModule('homework'), authorize(TEACH), ah(async (req, res) => {
   const { s, hw } = await loadSubmission(req, req.params.id);
   const st = await prisma.student.findUnique({ where: { id: s.studentId }, include: { grade: true, section: true } });
-  const result = await evaluateSubmission({ homework: hw, submission: s, student: { className: `${st.grade?.name || ''}-${st.section?.name || ''}` } });
+  const { pageAnnotations, ...result } = await evaluateSubmission({ homework: hw, submission: s, student: { className: `${st.grade?.name || ''}-${st.section?.name || ''}` } });
+  // Put the AI's ticks / crosses / notes on the pages: replace earlier AI marks, keep the teacher's own marks
+  const current = parseJSON(s.annotations, {});
+  const merged = {};
+  for (const [k, items] of Object.entries(current)) { const own = (items || []).filter((it) => !it.ai); if (own.length) merged[k] = own; }
+  for (const [k, items] of Object.entries(pageAnnotations || {})) merged[k] = [...(merged[k] || []), ...items];
+  result.markedAnswers = (result.markings || []).length;
   const updated = await prisma.homeworkSubmission.update({
     where: { id: s.id },
-    data: { aiEvaluation: JSON.stringify(result), aiEvaluatedAt: new Date(), history: hist(s, { action: 'AI_EVALUATED', by: `${aiProviderLabel()} (requested by ${req.user.name})`, marks: result.suggestedMarks, grade: result.suggestedGrade }) },
+    data: { annotations: JSON.stringify(merged), aiEvaluation: JSON.stringify(result), aiEvaluatedAt: new Date(), history: hist(s, { action: 'AI_EVALUATED', by: `${aiProviderLabel()} (requested by ${req.user.name})`, marks: result.suggestedMarks, grade: result.suggestedGrade }) },
   });
   audit(req, 'AI_EVALUATE_HOMEWORK', 'HomeworkSubmission', s.id, { marks: result.suggestedMarks, grade: result.suggestedGrade, model: result.model });
   res.json(view(updated));

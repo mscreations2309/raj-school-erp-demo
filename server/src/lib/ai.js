@@ -28,6 +28,7 @@ function fakeClient() {
     return { model: 'test-double', stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify({
       summary: `Test evaluation of ${pages} page(s).`, suggestedMarks: 8, suggestedGrade: 'A', feedbackForStudent: 'Good work! Check your spellings.',
       strengths: ['Clear structure'], improvements: ['Spelling'], questions: [{ label: 'Q1', verdict: 'correct', marksAwarded: 8, comment: 'Well explained' }],
+      markings: pages ? [{ questionLabel: 'Q1', fileNumber: 1, page: 1, box: [100, 100, 300, 800], verdict: 'correct', marksText: '8/10', note: 'well done' }] : [],
       legibility: 'clear', confidence: 'high', teacherNotes: 'Simulated result for testing.' }) }] };
   } } } };
 }
@@ -53,7 +54,7 @@ async function loadFile(url) {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'suggestedMarks', 'suggestedGrade', 'feedbackForStudent', 'strengths', 'improvements', 'questions', 'legibility', 'confidence', 'teacherNotes'],
+  required: ['summary', 'suggestedMarks', 'suggestedGrade', 'feedbackForStudent', 'strengths', 'improvements', 'questions', 'markings', 'legibility', 'confidence', 'teacherNotes'],
   properties: {
     summary: { type: 'string', description: 'One or two sentences for the teacher summarising the quality of the work.' },
     suggestedMarks: { type: 'number', description: 'Suggested marks between 0 and the maximum. Use 0 when no maximum marks are set.' },
@@ -75,6 +76,24 @@ const SCHEMA = {
         },
       },
     },
+    markings: {
+      type: 'array',
+      description: 'Where each answer is on the attached pages, so it can be ticked/crossed on the page. One entry per answer you can see. Empty when nothing is attached.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['questionLabel', 'fileNumber', 'page', 'box', 'verdict', 'marksText', 'note'],
+        properties: {
+          questionLabel: { type: 'string' },
+          fileNumber: { type: 'integer', description: 'Attached file number as listed (1, 2, ...).' },
+          page: { type: 'integer', description: 'Page number inside that file (always 1 for a photo).' },
+          box: { type: 'array', items: { type: 'number' }, description: '[ymin, xmin, ymax, xmax] around the student answer, each 0-1000 relative to that page.' },
+          verdict: { type: 'string', enum: ['correct', 'partially_correct', 'incorrect', 'not_attempted'] },
+          marksText: { type: 'string', description: 'e.g. "3/3", "1/3" or "" when no marks are set.' },
+          note: { type: 'string', description: 'Very short teacher-style remark, max 6 words, e.g. "sign error", "well done".' },
+        },
+      },
+    },
     legibility: { type: 'string', enum: ['clear', 'partly_readable', 'unreadable'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     teacherNotes: { type: 'string', description: 'Private notes for the teacher only: doubtful parts, unreadable sections, possible copying, things to verify.' },
@@ -88,6 +107,7 @@ Evaluate the work against the question:
 - Award marks strictly within 0 and the maximum, following the answer key when given. Never award marks for parts that were not attempted.
 - Keep feedbackForStudent age-appropriate, specific and kind; mention one thing done well and one concrete next step.
 - Write feedback in the same language as the homework (e.g. Hindi homework gets Hindi feedback).
+- For every answer visible on the attached pages, add a markings entry with a tight box around that answer (box = [ymin, xmin, ymax, xmax] on a 0-1000 scale of that page) so it can be ticked or crossed on the page like a teacher would.
 - Your output is a suggestion: the teacher reviews it before anything is shared, so flag anything uncertain in teacherNotes and lower confidence accordingly.`;
 
 /** Ask Claude to evaluate one submission. Returns the parsed suggestion object. */
@@ -98,6 +118,7 @@ export async function evaluateSubmission({ homework, student, submission }) {
   let attached = 0;
   let sentBytes = 0;
   const skipped = [];
+  const attachedFiles = [];
   for (const f of files) {
     const data = await loadFile(f.url);
     if (!data) continue;
@@ -107,9 +128,11 @@ export async function evaluateSubmission({ homework, student, submission }) {
     if (data.mime === 'application/pdf') {
       content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: data.buffer.toString('base64') } });
       attached++;
+      attachedFiles.push({ url: f.url, name: f.name, isPdf: true });
     } else if (Object.values(IMAGE_TYPES).includes(data.mime)) {
       content.push({ type: 'image', source: { type: 'base64', media_type: data.mime, data: data.buffer.toString('base64') } });
       attached++;
+      attachedFiles.push({ url: f.url, name: f.name, isPdf: false });
     }
   }
   const brief = [
@@ -120,7 +143,7 @@ export async function evaluateSubmission({ homework, student, submission }) {
     `Maximum marks: ${homework.maxMarks ?? 'not set (give a grade; set suggestedMarks to 0)'}`,
     `Answer key / marking scheme from the teacher: ${homework.answerKey || '(not provided — use your subject knowledge)'}`,
     `Student's typed answer: ${submission.text?.trim() || '(none)'}`,
-    `Attached pages of the student's work: ${attached}${attached ? ' (shown above)' : ''}`,
+    `Attached files of the student's work (shown above, in this order): ${attachedFiles.length ? attachedFiles.map((a, i) => `File ${i + 1}: ${a.name} (${a.isPdf ? 'PDF - give the page number' : 'photo - page 1'})`).join('; ') : 'none'}`,
     ...(skipped.length ? [`NOT attached (too large for AI): ${skipped.join(', ')} — say in teacherNotes that the teacher must check these files manually.`] : []),
   ].join('\n');
   content.push({ type: 'text', text: `${brief}\n\nEvaluate this homework submission.` });
@@ -128,7 +151,32 @@ export async function evaluateSubmission({ homework, student, submission }) {
   const result = aiProvider() === 'gemini' ? await callGemini(content, brief) : await callClaude(content);
   if (homework.maxMarks != null) result.suggestedMarks = Math.min(Math.max(0, Number(result.suggestedMarks) || 0), homework.maxMarks);
   else result.suggestedMarks = null;
-  return { ...result, attachedPages: attached, provider: aiProviderLabel() };
+  return { ...result, attachedPages: attached, provider: aiProviderLabel(), pageAnnotations: buildAiAnnotations(result.markings, attachedFiles) };
+}
+
+const COLOR = { correct: '#16a34a', partially_correct: '#d97706', incorrect: '#dc2626', not_attempted: '#dc2626' };
+const clamp = (v) => Math.min(1, Math.max(0, v));
+
+/** Turn the AI's answer locations into marking-board items (same format as the teacher's pen), tagged ai:true. */
+export function buildAiAnnotations(markings, attachedFiles) {
+  const out = {};
+  for (const m of markings || []) {
+    const file = attachedFiles[(m.fileNumber || 0) - 1];
+    if (!file || !Array.isArray(m.box) || m.box.length !== 4) continue;
+    let [y0, x0, y1, x1] = m.box.map((v) => clamp(Number(v) / 1000));
+    if (y1 < y0) [y0, y1] = [y1, y0];
+    if (x1 < x0) [x0, x1] = [x1, x0];
+    if (y1 - y0 < 0.01 || x1 - x0 < 0.01) continue;
+    const key = file.isPdf ? `${file.url}#p${Math.max(1, m.page || 1)}` : file.url;
+    const c = COLOR[m.verdict] || '#dc2626';
+    const r = (v) => Math.round(v * 10000) / 10000;
+    const items = (out[key] ||= []);
+    items.push({ t: 'pen', c, w: 0.0025, ai: true, pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map(([x, y]) => [r(x), r(y)]) });
+    items.push({ t: m.verdict === 'correct' || m.verdict === 'partially_correct' ? 'tick' : 'cross', c, ai: true, x: r(Math.min(x1 + 0.03, 0.96)), y: r(clamp(y0 + 0.025)), s: 0.04 });
+    const label = [m.marksText, m.note].filter(Boolean).join(' - ').slice(0, 48);
+    if (label) items.push({ t: 'text', c, ai: true, txt: label, s: 0.02, x: r(x0), y: r(y1 < 0.95 ? y1 + 0.025 : Math.max(0.03, y0 - 0.01)) });
+  }
+  return out;
 }
 
 async function callClaude(content) {

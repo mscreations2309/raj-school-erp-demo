@@ -16,7 +16,7 @@ const VERDICT = { correct: ['Correct', 'text-emerald-700 bg-emerald-50'], partia
 const isImg = (n) => /\.(png|jpe?g|webp|gif)$/i.test(n);
 const isPdf = (n) => /\.pdf$/i.test(n);
 
-function AiPanel({ ai, maxMarks, onApply, label }) {
+function AiPanel({ ai, maxMarks, onApply, label, aiMarks, onRemoveMarks }) {
   const [open, setOpen] = useState(true);
   if (!ai) return null;
   return (
@@ -37,6 +37,12 @@ function AiPanel({ ai, maxMarks, onApply, label }) {
           {ai.teacherNotes && <div className="rounded-lg bg-white/70 p-2 text-xs text-slate-600"><b>Note for teacher:</b> {ai.teacherNotes}</div>}
           <div className="rounded-lg bg-white p-2 text-xs italic text-slate-700">“{ai.feedbackForStudent}”</div>
           <button className="btn-outline btn-sm w-full border-violet-300 text-violet-700 hover:bg-violet-50" onClick={onApply}><Wand2 size={13} /> Use this suggestion (you can edit before publishing)</button>
+          {aiMarks > 0 && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-white/70 p-2 text-[11px] text-slate-600">
+              <span>✓ ✗ {label || 'AI'} marked the answers on the pages ({aiMarks} marks). Edit, erase or add your own — they all go into the checked copy.</span>
+              <button className="shrink-0 font-semibold text-rose-600 hover:underline" onClick={onRemoveMarks}>Remove AI marks</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -160,8 +166,12 @@ export default function HomeworkReview() {
     setBusy('ai');
     try {
       const { data: updated } = await api.post(`/homework-submissions/${sub.id}/ai-evaluate`);
-      setData((d) => ({ ...d, rows: d.rows.map((r) => (r.submission?.id === updated.id ? { ...r, submission: { ...r.submission, aiEvaluation: updated.aiEvaluation, aiEvaluatedAt: updated.aiEvaluatedAt, history: updated.history } } : r)) }));
-      toast.success(`${aiStatus?.label || 'Rynix AI'} has suggested an evaluation — please review it`);
+      setData((d) => ({ ...d, rows: d.rows.map((r) => (r.submission?.id === updated.id ? { ...r, submission: { ...r.submission, aiEvaluation: updated.aiEvaluation, aiEvaluatedAt: updated.aiEvaluatedAt, history: updated.history, annotations: updated.annotations } } : r)) }));
+      clearTimeout(timer.current);
+      setAnn(updated.annotations || {});
+      setSaveState('saved');
+      const n = updated.aiEvaluation?.markedAnswers || 0;
+      toast.success(`${aiStatus?.label || 'Rynix AI'} has suggested an evaluation${n ? ` and marked ${n} answer(s) on the pages` : ''} — please review it`);
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(''); }
   };
   const applyAi = () => {
@@ -253,7 +263,7 @@ export default function HomeworkReview() {
                     {busy === 'ai' ? <><Loader2 size={16} className="animate-spin" /> {aiStatus?.label || 'Rynix AI'} is reading the work…</> : <><Sparkles size={16} /> {sub.aiEvaluation ? 'Re-evaluate' : 'Evaluate'} with {aiStatus?.label || 'Rynix AI'}</>}
                   </button>
                   {aiStatus?.enabled === false && <p className="-mt-2 text-center text-[11px] text-amber-700">AI evaluation needs to be switched on by the administrator.</p>}
-                  <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} />
+                  <AiPanel ai={sub.aiEvaluation} maxMarks={hw.maxMarks} onApply={applyAi} label={aiStatus?.label} aiMarks={Object.values(ann).flat().filter((it) => it.ai).length} onRemoveMarks={() => changeAnn(Object.fromEntries(Object.entries(ann).map(([k, items]) => [k, items.filter((it) => !it.ai)])))} />
                 </div>
                 <details className="text-[11px] text-slate-500"><summary className="cursor-pointer">History</summary><ul className="mt-1 space-y-0.5">{sub.history.map((h, k) => <li key={k}>{fmtDateTime(h.at)} — {h.action.replace(/_/g, ' ').toLowerCase()} by {h.by}{h.note ? `: “${h.note}”` : ''}</li>)}</ul></details>
               </div>
