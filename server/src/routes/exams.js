@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { ah, notFound, badRequest, forbidden, parseJSON } from '../lib/http.js';
 import { authorize, requireModule, ADMINS, STAFF_ROLES } from '../lib/auth.js';
 import { audit } from '../lib/audit.js';
+import { assertPair, assertSection } from '../lib/teacherScope.js';
 
 const r = Router();
 r.use(requireModule('exams'));
@@ -18,6 +19,7 @@ const scaleOf = (school) => parseJSON(school?.settings, {}).gradeScale;
 r.get('/marks', authorize(STAFF_ROLES), ah(async (req, res) => {
   const { examId, sectionId, subjectId } = req.query;
   if (!examId || !sectionId || !subjectId) throw badRequest('examId, sectionId and subjectId are required');
+  await assertPair(req, sectionId, subjectId);
   const section = await prisma.section.findFirst({ where: { id: sectionId, schoolId: req.schoolId } });
   if (!section) throw badRequest('Invalid section');
   const [students, marks, schedule] = await Promise.all([
@@ -37,6 +39,7 @@ r.post('/marks', authorize([...ADMINS, 'TEACHER']), ah(async (req, res) => {
     examId: z.string(), subjectId: z.string(), sectionId: z.string(), maxMarks: z.coerce.number().positive().default(100),
     records: z.array(z.object({ studentId: z.string(), marksObtained: z.union([z.number(), z.string(), z.null()]).optional(), isAbsent: z.boolean().optional(), remarks: z.string().optional() })),
   }).parse(req.body);
+  await assertPair(req, d.sectionId, d.subjectId);
   const exam = await prisma.exam.findFirst({ where: { id: d.examId, schoolId: req.schoolId } });
   if (!exam) throw badRequest('Invalid exam');
   if (exam.isPublished && !ADMINS.includes(req.user.role) && req.user.role !== 'SUPER_ADMIN') throw forbidden('Results are published. Ask admin to unpublish to edit marks.');
@@ -83,6 +86,7 @@ export async function tabulate(schoolId, examId, sectionId, scale) {
 r.get('/results', authorize(STAFF_ROLES), ah(async (req, res) => {
   const { examId, sectionId } = req.query;
   if (!examId || !sectionId) throw badRequest('examId and sectionId are required');
+  await assertSection(req, sectionId);
   const data = await tabulate(req.schoolId, examId, sectionId, scaleOf(req.school));
   const n = data.rows.filter((x) => x.percent != null);
   res.json({

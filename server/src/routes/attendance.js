@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { ah, badRequest, dayKey } from '../lib/http.js';
 import { authorize, requireModule, ADMINS, STAFF_ROLES } from '../lib/auth.js';
 import { audit } from '../lib/audit.js';
+import { assertSection } from '../lib/teacherScope.js';
 
 const r = Router();
 r.use(requireModule('attendance'));
@@ -20,6 +21,7 @@ function monthRange(month) {
 r.get('/students', authorize(STAFF_ROLES), ah(async (req, res) => {
   const { sectionId } = req.query;
   if (!sectionId) throw badRequest('sectionId is required');
+  await assertSection(req, sectionId);
   const date = dayKey(req.query.date || new Date());
   const section = await prisma.section.findFirst({ where: { id: sectionId, schoolId: req.schoolId }, include: { grade: true } });
   if (!section) throw badRequest('Invalid section');
@@ -44,6 +46,7 @@ r.post('/students', authorize(MARKERS), ah(async (req, res) => {
       records: z.array(z.object({ studentId: z.string(), status: z.enum(STATUSES), remarks: z.string().optional() })).min(1),
     })
     .parse(req.body);
+  await assertSection(req, sectionId);
   const day = dayKey(date);
   if (day > dayKey(new Date())) throw badRequest('Cannot mark attendance for a future date');
   const section = await prisma.section.findFirst({ where: { id: sectionId, schoolId: req.schoolId } });
@@ -66,6 +69,7 @@ r.post('/students', authorize(MARKERS), ah(async (req, res) => {
 r.get('/students/report', authorize(STAFF_ROLES), ah(async (req, res) => {
   const { sectionId, month } = req.query;
   if (!sectionId) throw badRequest('sectionId is required');
+  await assertSection(req, sectionId);
   const { from, to, days } = monthRange(month);
   const [students, records] = await Promise.all([
     prisma.student.findMany({ where: { sectionId, schoolId: req.schoolId, status: 'ACTIVE' }, orderBy: [{ rollNo: 'asc' }], select: { id: true, firstName: true, lastName: true, rollNo: true } }),

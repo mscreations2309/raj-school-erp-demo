@@ -115,6 +115,7 @@ export function crudRouter(model, opts = {}) {
     afterSave,
     beforeDelete,
     extraWhere,
+    scopeWhere, // per-user row restriction applied to list / get / update / delete
     deny = [],
   } = opts;
   const r = Router();
@@ -144,6 +145,7 @@ export function crudRouter(model, opts = {}) {
         where[f] = field?.type === 'Boolean' ? v === 'true' : field?.type === 'Int' ? parseInt(v) : v;
       }
       if (extraWhere) Object.assign(where, await extraWhere(req));
+      if (scopeWhere) where.AND = [await scopeWhere(req)];
       let order = orderBy;
       if (req.query.sort) {
         const [field, dir] = String(req.query.sort).split(':');
@@ -169,7 +171,7 @@ export function crudRouter(model, opts = {}) {
     '/:id',
     readGuard,
     ah(async (req, res) => {
-      const item = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId) }, include });
+      const item = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId), ...(scopeWhere && { AND: [await scopeWhere(req)] }) }, include });
       if (!item) throw notFound();
       res.json(item);
     }),
@@ -194,7 +196,7 @@ export function crudRouter(model, opts = {}) {
     '/:id',
     writeGuard,
     ah(async (req, res) => {
-      const existing = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId) } });
+      const existing = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId), ...(scopeWhere && { AND: [await scopeWhere(req)] }) } });
       if (!existing) throw notFound();
       let data = sanitize(model, req.body, { partial: true, deny });
       if (beforeSave) data = (await beforeSave(data, req, existing)) || data;
@@ -210,7 +212,7 @@ export function crudRouter(model, opts = {}) {
     '/:id',
     writeGuard,
     ah(async (req, res) => {
-      const existing = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId) } });
+      const existing = await db.findFirst({ where: { id: req.params.id, ...tenantWhere(model, req.schoolId), ...(scopeWhere && { AND: [await scopeWhere(req)] }) } });
       if (!existing) throw notFound();
       if (beforeDelete) await beforeDelete(existing, req);
       // Never hard delete: move to the Recycle Bin (restorable) with a mandatory reason

@@ -4,6 +4,7 @@ import { crudRouter } from '../lib/crud.js';
 import { prisma } from '../lib/prisma.js';
 import { badRequest } from '../lib/http.js';
 import { ADMINS, STAFF_ROLES, ALL_SCHOOL_ROLES } from '../lib/auth.js';
+import { isTeacher, teacherScope, homeworkWhere, assertPair } from '../lib/teacherScope.js';
 
 const r = Router();
 const ACC = [...ADMINS, 'ACCOUNTANT'];
@@ -25,11 +26,13 @@ r.use('/grades', crudRouter('Grade', {
 r.use('/sections', crudRouter('Section', {
   module: 'academics', filters: ['gradeId'], orderBy: [{ grade: { order: 'asc' } }, { name: 'asc' }],
   include: { grade: true, classTeacher: true, _count: { select: { students: true } } },
+  async scopeWhere(req) { if (!isTeacher(req)) return {}; const { sectionIds } = await teacherScope(req); return { id: { in: sectionIds } }; },
 }));
 r.use('/subjects', crudRouter('Subject', { module: 'academics', search: ['name', 'code'], orderBy: { name: 'asc' } }));
 r.use('/section-subjects', crudRouter('SectionSubject', {
   module: 'academics', filters: ['sectionId', 'teacherId'], orderBy: { id: 'asc' },
   include: { subject: true, teacher: true, section: { include: { grade: true } } },
+  async scopeWhere(req) { if (!isTeacher(req)) return {}; const { staff } = await teacherScope(req); return { teacherId: staff?.id || '__none__' }; },
 }));
 r.use('/events', crudRouter('Event', {
   read: ALL_SCHOOL_ROLES, write: FRONT, search: ['title'], filters: ['type', 'isPublic'], orderBy: { startDate: 'asc' },
@@ -73,10 +76,15 @@ r.use('/notices', crudRouter('Notice', {
 r.use('/homework', crudRouter('Homework', {
   module: 'homework', write: TEACH, filters: ['sectionId', 'subjectId', 'teacherId'], search: ['title'],
   orderBy: { assignedDate: 'desc' }, include: { section: { include: { grade: true } }, subject: true, teacher: true, _count: { select: { submissions: true } } },
-  async beforeSave(data, req) {
-    if (req.user.role === 'TEACHER' && !data.teacherId) {
-      const staff = await prisma.staff.findFirst({ where: { userId: req.user.id } });
-      data.teacherId = staff?.id;
+  // Teachers only see / edit homework of the subjects they teach in their classes (or homework they created)
+  scopeWhere: homeworkWhere,
+  async beforeSave(data, req, existing) {
+    if (isTeacher(req)) {
+      const { staff } = await teacherScope(req);
+      if (!staff) throw badRequest('Your login is not linked to a staff profile');
+      if (!existing && (!data.sectionId || !data.subjectId)) throw badRequest('Choose your class & subject');
+      await assertPair(req, data.sectionId ?? existing?.sectionId, data.subjectId ?? existing?.subjectId);
+      data.teacherId = staff.id; // a teacher cannot assign homework to someone else
     }
     return data;
   },

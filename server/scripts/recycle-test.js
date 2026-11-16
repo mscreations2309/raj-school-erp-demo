@@ -64,7 +64,8 @@ const tok = async (e, p) => (await login(e, p)).data?.token;
 
   console.log('4. Deleting a user login blocks sign-in');
   const users = (await call('GET', '/users?role=LIBRARIAN', admin)).data.items;
-  const ud = await call('DELETE', `/users/${users[0].id}`, admin, { reason: 'Left the job' });
+  const lib = users.find((u) => u.email === 'library@rajschool.in');
+  const ud = await call('DELETE', `/users/${lib.id}`, admin, { reason: 'Left the job' });
   ok(ud.status === 200 && (await login('library@rajschool.in', 'Library@123')).status === 401, 'deleted login cannot sign in');
   await call('POST', `/recycle-bin/${ud.data.recycleBinEntryId}/restore`, admin);
   ok((await login('library@rajschool.in', 'Library@123')).status === 200, 'restored login can sign in');

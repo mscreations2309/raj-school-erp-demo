@@ -7,6 +7,7 @@ import { ah, notFound, badRequest, forbidden, parseJSON } from '../lib/http.js';
 import { authorize, requireModule, ADMINS } from '../lib/auth.js';
 import { upload, saveUpload } from '../lib/upload.js';
 import { audit } from '../lib/audit.js';
+import { isTeacher, teacherScope, teachesPair } from '../lib/teacherScope.js';
 import { evaluateSubmission, aiEnabled, aiProviderLabel } from '../lib/ai.js';
 
 const TEACH = [...ADMINS, 'TEACHER'];
@@ -17,10 +18,9 @@ const hist = (s, item) => JSON.stringify([...parseJSON(s?.history, []), { ...ite
 async function loadHomework(req, id) {
   const hw = await prisma.homework.findFirst({ where: { id, schoolId: req.schoolId }, include: { subject: true, section: { include: { grade: true } } } });
   if (!hw) throw notFound('Homework not found');
-  if (req.user.role === 'TEACHER') {
-    const me = await prisma.staff.findFirst({ where: { userId: req.user.id } });
-    const allowed = me && (hw.teacherId === me.id || hw.section.classTeacherId === me.id
-      || (await prisma.sectionSubject.count({ where: { sectionId: hw.sectionId, subjectId: hw.subjectId, teacherId: me.id } })) > 0);
+  if (isTeacher(req)) {
+    const { staff } = await teacherScope(req);
+    const allowed = staff && (hw.teacherId === staff.id || (await teachesPair(req, hw.sectionId, hw.subjectId)));
     if (!allowed) throw forbidden('This homework belongs to another teacher');
   }
   return hw;

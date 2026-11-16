@@ -7,6 +7,7 @@ import ResourcePage from '../components/ResourcePage';
 import { Badge, Modal, Field, Card, useFetch } from '../components/ui';
 import { api, errMsg } from '../../lib/api';
 import { fmtDate, money, fullName, pretty } from '../../lib/format';
+import { useAuth } from '../../lib/auth';
 
 const ADMIN = ['SCHOOL_ADMIN', 'PRINCIPAL'];
 const ACC = [...ADMIN, 'ACCOUNTANT'];
@@ -111,13 +112,23 @@ export const Notices = () => (
     fields={[{ name: 'title', label: 'Title (English)', required: true, full: true }, { name: 'titleHi', label: 'Title (Hindi)', full: true }, { name: 'body', label: 'Content (English)', type: 'textarea', required: true }, { name: 'bodyHi', label: 'Content (Hindi)', type: 'textarea' }, { name: 'category', label: 'Category', type: 'select', options: ['NOTICE', 'CIRCULAR', 'NEWS', 'ACHIEVEMENT'] }, { name: 'audience', label: 'Audience', type: 'select', options: ['ALL', 'PARENTS', 'STUDENTS', 'STAFF'] }, { name: 'publishDate', label: 'Publish date', type: 'date' }, { name: 'isPublic', label: 'Show on website', type: 'bool', default: true }, { name: 'isPinned', label: 'Pin to top', type: 'bool' }, { name: 'attachmentUrl', label: 'Attachment', type: 'file' }]} />
 );
 
-export const Homework = () => (
-  <ResourcePage title="Homework" icon={NotebookPen} endpoint="/homework" writeRoles={[...ADMIN, 'TEACHER']}
-    filters={[{ name: 'sectionId', label: 'Section', optionsFrom: sectionOpt }, { name: 'subjectId', label: 'Subject', optionsFrom: subjectOpt }]}
-    columns={[{ key: 'assignedDate', label: 'Assigned', type: 'date' }, { label: 'Class', render: (h) => `${h.section.grade.name}-${h.section.name}` }, { label: 'Subject', render: (h) => h.subject.name }, { key: 'title', label: 'Title' }, { key: 'dueDate', label: 'Due', type: 'date' }, { label: 'Submissions', render: (h) => (h.allowSubmission ? <b>{h._count?.submissions || 0}</b> : <span className="text-xs text-slate-400">offline</span>) }, { label: 'Teacher', render: (h) => (h.teacher ? fullName(h.teacher) : '—') }]}
-    fields={[{ name: 'sectionId', label: 'Section', type: 'select', optionsFrom: sectionOpt, required: true }, { name: 'subjectId', label: 'Subject', type: 'select', optionsFrom: subjectOpt, required: true }, { name: 'title', label: 'Title', required: true, full: true }, { name: 'description', label: 'Description', type: 'textarea' }, { name: 'dueDate', label: 'Due date', type: 'date', required: true }, { name: 'maxMarks', label: 'Max marks (optional)', type: 'number' }, { name: 'answerKey', label: 'Answer key / marking scheme (only teachers & AI see this)', type: 'textarea', hint: 'Helps Claude AI evaluate accurately, e.g. Q1 (2 marks): photosynthesis definition…' }, { name: 'allowSubmission', label: 'Students submit online', type: 'bool', default: true, checkLabel: 'Allow online submission' }, { name: 'attachmentUrl', label: 'Worksheet / attachment', type: 'file' }]}
-    rowActions={(h) => h.allowSubmission && <Link to={`/app/homework/${h.id}`} className="btn-primary btn-sm">Check work</Link>} />
-);
+const pairOpt = { url: '/section-subjects', map: (r) => [`${r.sectionId}|${r.subjectId}`, `${r.section.grade.name}-${r.section.name} • ${r.subject.name}`] };
+export function Homework() {
+  const { user } = useAuth();
+  const teacher = user?.role === 'TEACHER';
+  // Teachers choose one of THEIR class+subject pairs; admins choose any class/subject and can (re)assign the teacher.
+  const head = teacher
+    ? [{ name: 'pair', label: 'Class & subject (yours)', type: 'select', optionsFrom: pairOpt, full: true, hint: 'When editing, leave empty to keep the same class & subject' }]
+    : [{ name: 'sectionId', label: 'Section', type: 'select', optionsFrom: sectionOpt, required: true }, { name: 'subjectId', label: 'Subject', type: 'select', optionsFrom: subjectOpt, required: true }, { name: 'teacherId', label: 'Teacher (assign / reassign)', type: 'select', optionsFrom: staffOpt }];
+  return (
+    <ResourcePage title="Homework" subtitle={teacher ? 'Only homework for the classes & subjects assigned to you' : undefined} icon={NotebookPen} endpoint="/homework" writeRoles={[...ADMIN, 'TEACHER']}
+      filters={teacher ? [{ name: 'sectionId', label: 'Class', optionsFrom: sectionOpt }] : [{ name: 'sectionId', label: 'Section', optionsFrom: sectionOpt }, { name: 'subjectId', label: 'Subject', optionsFrom: subjectOpt }]}
+      columns={[{ key: 'assignedDate', label: 'Assigned', type: 'date' }, { label: 'Class', render: (h) => `${h.section.grade.name}-${h.section.name}` }, { label: 'Subject', render: (h) => h.subject.name }, { key: 'title', label: 'Title' }, { key: 'dueDate', label: 'Due', type: 'date' }, { label: 'Submissions', render: (h) => (h.allowSubmission ? <b>{h._count?.submissions || 0}</b> : <span className="text-xs text-slate-400">offline</span>) }, { label: 'Teacher', render: (h) => (h.teacher ? fullName(h.teacher) : '—') }]}
+      fields={[...head, { name: 'title', label: 'Title', required: true, full: true }, { name: 'description', label: 'Description', type: 'textarea' }, { name: 'dueDate', label: 'Due date', type: 'date', required: true }, { name: 'maxMarks', label: 'Max marks (optional)', type: 'number' }, { name: 'answerKey', label: 'Answer key / marking scheme (only teachers & AI see this)', type: 'textarea', hint: 'Helps Claude AI evaluate accurately, e.g. Q1 (2 marks): photosynthesis definition…' }, { name: 'allowSubmission', label: 'Students submit online', type: 'bool', default: true, checkLabel: 'Allow online submission' }, { name: 'attachmentUrl', label: 'Worksheet / attachment', type: 'file' }]}
+      transformOut={(v) => { if (!teacher) return v; const { pair, ...rest } = v; if (!pair) return rest; const [sectionId, subjectId] = pair.split('|'); return { ...rest, sectionId, subjectId }; }}
+      rowActions={(h) => h.allowSubmission && <Link to={`/app/homework/${h.id}`} className="btn-primary btn-sm">Check work</Link>} />
+  );
+}
 
 export const TCs = () => (
   <ResourcePage title="Transfer Certificates" subtitle="Issued TCs are verifiable on the public website" icon={FileText} endpoint="/tcs" writeRoles={FRONT}
