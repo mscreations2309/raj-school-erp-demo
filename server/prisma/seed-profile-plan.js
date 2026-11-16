@@ -38,12 +38,12 @@ export function planProfileData(students, staff, { keepStudentId } = {}) {
 
   // Activity groups
   const between = (lo, hi) => active.filter((s) => s.grade?.order >= lo && s.grade?.order <= hi);
-  const pick = (list, n) => list.filter(() => rnd() < n / Math.max(list.length, 1));
-  pick(between(11, 14), 26).forEach((s) => add(s, 'NCC'));
-  pick(between(9, 12).filter((s) => s.gender === 'MALE'), 22).forEach((s) => add(s, 'Scouts'));
-  pick(between(9, 12).filter((s) => s.gender === 'FEMALE'), 22).forEach((s) => add(s, 'Guides'));
-  pick(between(14, 15), 14).forEach((s) => add(s, 'NSS'));
-  pick(between(8, 13), 20).forEach((s) => add(s, 'Eco Club'));
+  const pick = (list, share) => list.filter(() => rnd() < share);
+  pick(between(11, 14), 0.35).forEach((s) => add(s, 'NCC'));
+  pick(between(9, 12).filter((s) => s.gender === 'MALE'), 0.4).forEach((s) => add(s, 'Scouts'));
+  pick(between(9, 12).filter((s) => s.gender === 'FEMALE'), 0.4).forEach((s) => add(s, 'Guides'));
+  pick(between(14, 15), 0.35).forEach((s) => add(s, 'NSS'));
+  pick(between(8, 13), 0.15).forEach((s) => add(s, 'Eco Club'));
   if (keepStudentId && !tags.some((t) => t.studentId === keepStudentId && t.typeName === 'NCC')) add({ id: keepStudentId }, 'NCC');
 
   // In-charge teachers

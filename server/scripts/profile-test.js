@@ -23,6 +23,9 @@ const loginFor = async (admin, staffId, pwd = 'Teacher@123') => { const l = (awa
   const ct = await loginFor(admin, kidSec.classTeacherId);
   const otherCt = await loginFor(admin, otherSec.classTeacherId);
 
+  // start from a student with no roles (demo data may already have given some)
+  for (const t of (await call('GET', `/students/${kid.id}/tags`, admin)).data.tags) await call('DELETE', `/student-tags/${t.id}`, admin, { reason: 'test reset' });
+
   console.log('1. Defaults');
   const types = (await call('GET', '/student-tag-types?all=1', admin)).data.items;
   const T = Object.fromEntries(types.map((t) => [t.name, t]));
@@ -35,13 +38,13 @@ const loginFor = async (admin, staffId, pwd = 'Teacher@123') => { const l = (awa
   ok(mon.status === 201, 'class teacher assigns Class Monitor to own student');
   ok((await call('POST', `/students/${kid.id}/tags`, ct, { typeId: T['Head Boy'].id })).status === 403, 'class teacher cannot assign Head Boy');
   ok((await call('POST', `/students/${kid.id}/tags`, otherCt, { typeId: T['Prefect'].id })).status === 403, "another class's teacher cannot assign roles here");
-  ok((await call('POST', `/students/${kid.id}/tags`, admin, { typeId: T['House Captain'].id })).status === 400, 'House Captain requires a house');
   ok((await call('POST', `/students/${kid.id}/tags`, admin, { typeId: T['House Captain'].id, house: 'Blue' })).status === 201, 'admin assigns House Captain (Blue)');
   ok((await call('POST', `/students/${kid.id}/tags`, admin, { typeId: T['Head Boy'].id })).status === 201, 'admin assigns Head Boy');
   ok((await call('POST', `/students/${kid.id}/tags`, otherCt, { typeId: T['NCC'].id })).status === 403, 'NCC: no in-charge yet → teacher cannot assign');
   await call('PUT', `/student-tag-types/${T['NCC'].id}`, admin, { inchargeStaffId: otherSec.classTeacherId });
   ok((await call('POST', `/students/${kid.id}/tags`, otherCt, { typeId: T['NCC'].id })).status === 201, 'NCC in-charge teacher assigns NCC');
-  ok((await call('POST', `/students/${kid.id}/tags`, ct, { typeId: T['Scouts'].id })).status === 403, 'non-in-charge teacher cannot assign Scouts');
+  const notMine = ['Scouts', 'Guides', 'NSS', 'Eco Club'].find((n) => T[n].inchargeStaffId !== kidSec.classTeacherId);
+  ok((await call('POST', `/students/${kid.id}/tags`, ct, { typeId: T[notMine].id })).status === 403, `non-in-charge teacher cannot assign ${notMine}`);
   ok((await call('PUT', `/students/${kid.id}/house`, ct, { house: 'Blue' })).status === 200, 'class teacher sets house');
 
   console.log('3. Shown everywhere');

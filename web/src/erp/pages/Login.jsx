@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Loader2, LogIn, Eye, EyeOff, ArrowLeft, ShieldCheck, Users, GraduationCap, Wallet, School, BookOpen, UserRound } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth, homeFor } from '../../lib/auth';
 import { api, errMsg } from '../../lib/api';
-
-const DEMO = [
-  ['School Admin', 'admin@rajschool.in', 'Admin@123', ShieldCheck],
-  ['Principal', 'principal@rajschool.in', 'Principal@123', School],
-  ['Teacher', 'teacher@rajschool.in', 'Teacher@123', GraduationCap],
-  ['Accountant', 'accounts@rajschool.in', 'Accounts@123', Wallet],
-  ['Reception', 'reception@rajschool.in', 'Reception@123', Users],
-  ['Librarian', 'library@rajschool.in', 'Library@123', BookOpen],
-  ['Parent', '9876543210', '9876543210', UserRound],
-  ['Student', 'student@rajschool.in', 'Student@123', GraduationCap],
-  ['RnY Super Admin', 'admin@rnygroups.com', 'Admin@123', ShieldCheck],
-];
 
 export default function Login() {
   const { login, user, school } = useAuth();
@@ -70,17 +58,6 @@ export default function Login() {
             {error && <motion.p initial={{ x: -10 }} animate={{ x: [0, -8, 8, -4, 0] }} className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</motion.p>}
             <button className="btn-primary w-full py-3.5 text-base" disabled={busy}>{busy ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Sign in</button>
           </form>
-
-          <div className="mt-10">
-            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200" /> Demo logins (one click) <span className="h-px flex-1 bg-slate-200" /></div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {DEMO.map(([label, email, password, I]) => (
-                <button key={label} disabled={busy} onClick={() => { setV({ email, password }); submit(null, { email, password }); }} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-left text-sm transition hover:border-brand-300 hover:bg-brand-50">
-                  <I size={16} className="text-brand-600" /> <span className="font-medium text-slate-700">{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>

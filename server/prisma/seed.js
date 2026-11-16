@@ -98,11 +98,10 @@ async function main() {
     ['Kavita', 'Dubey', 'FEMALE', 'Librarian', 'Library', 'NON_TEACHING', 'M.Lib.', 30000, '9000011005', 'library@rajschool.in', 'LIBRARIAN', 'Library@123'],
   ];
   const teacherSubjects = [
-    ['English', 'PGT'], ['English', 'TGT'], ['English', 'PRT'], ['Hindi', 'PGT'], ['Hindi', 'TGT'], ['Hindi', 'PRT'],
-    ['Mathematics', 'PGT'], ['Mathematics', 'TGT'], ['Mathematics', 'TGT'], ['Mathematics', 'PRT'], ['Science', 'TGT'], ['Science', 'TGT'],
-    ['Physics', 'PGT'], ['Chemistry', 'PGT'], ['Biology', 'PGT'], ['Social Science', 'TGT'], ['Social Science', 'TGT'], ['Sanskrit', 'TGT'],
-    ['Computer Science', 'PGT'], ['Computer Science', 'TGT'], ['Environmental Studies', 'PRT'], ['Environmental Studies', 'PRT'], ['General Knowledge', 'PRT'],
-    ['Physical Education', 'PGT'], ['Art & Craft', 'PRT'], ['Music', 'PRT'], ['English', 'NTT'], ['Mathematics', 'NTT'], ['Hindi', 'PRT'], ['Science', 'PRT'],
+    // One teacher per subject
+    ['English', 'PGT'], ['Hindi', 'PGT'], ['Mathematics', 'PGT'], ['Science', 'TGT'], ['Social Science', 'TGT'], ['Sanskrit', 'TGT'],
+    ['Computer Science', 'PGT'], ['Environmental Studies', 'PRT'], ['General Knowledge', 'PRT'], ['Physics', 'PGT'], ['Chemistry', 'PGT'],
+    ['Biology', 'PGT'], ['Physical Education', 'PGT'], ['Art & Craft', 'PRT'], ['Music', 'PRT'],
   ];
   const staff = [];
   let emp = 0;
@@ -151,8 +150,8 @@ async function main() {
     return any[0];
   };
   const sectionSubjects = {};
-  const ctPool = [...teachers];
-  for (const s of sections) {
+  const ctLoad = new Map();
+  for (const [si, s] of sections.entries()) {
     const list = subjectsFor(s.grade, s.name);
     sectionSubjects[s.id] = [];
     for (const name of list) {
@@ -160,7 +159,10 @@ async function main() {
       await prisma.sectionSubject.create({ data: { schoolId, sectionId: s.id, subjectId: subjects[name].id, teacherId: t?.id } });
       sectionSubjects[s.id].push({ subject: subjects[name], teacher: t });
     }
-    const ct = ctPool.length ? ctPool.shift() : null;
+    // Class teacher: a teacher who actually teaches this section, spreading the load
+    const own = sectionSubjects[s.id].map((x) => x.teacher).filter(Boolean);
+    const ct = own.sort((a, b) => (ctLoad.get(a.id) || 0) - (ctLoad.get(b.id) || 0) || a.id.localeCompare(b.id))[0] || teachers[si % teachers.length];
+    ctLoad.set(ct.id, (ctLoad.get(ct.id) || 0) + 1);
     if (ct) await prisma.section.update({ where: { id: s.id }, data: { classTeacherId: ct.id } });
   }
 
@@ -217,7 +219,7 @@ async function main() {
   const roomFill = new Map();
   const parentPwd = await hash('parent123');
   for (const s of sections) {
-    const count = s.grade.order <= 3 ? between(10, 13) : s.grade.order >= 14 ? between(12, 15) : between(13, 17);
+    const count = Number(process.env.STUDENTS_PER_SECTION) || 5;
     for (let i = 0; i < count; i++) {
       admNo++;
       const female = rand() < 0.47;

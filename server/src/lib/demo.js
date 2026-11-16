@@ -15,6 +15,21 @@ const run = (cmd, args) =>
   });
 
 export async function prepareDatabase() {
+  // DEMO_RESET=<any new value> (set by the owner on the host) → rebuild the demo database ONCE for that value.
+  // A marker remembers the value, so later restarts never wipe again.
+  const reset = process.env.DEMO_RESET?.trim();
+  if (reset && process.env.SEED_MODE === 'demo') {
+    const key = `demo-reset:${reset}`;
+    const done = await prisma.counter.findUnique({ where: { schoolId_key: { schoolId: 'platform', key } } }).catch(() => null);
+    if (!done) {
+      console.log(`⏳ DEMO_RESET=${reset} — rebuilding the demo database…`);
+      await prisma.$disconnect();
+      await run('npx', ['prisma', 'db', 'push', '--force-reset', '--skip-generate', '--accept-data-loss']);
+      await run('node', ['prisma/seed.js']);
+      await prisma.counter.create({ data: { schoolId: 'platform', key } });
+      return;
+    }
+  }
   const plans = await prisma.plan.count();
   if (plans > 0) return; // never modify an existing database
   const clean = process.env.SEED_MODE === 'clean';

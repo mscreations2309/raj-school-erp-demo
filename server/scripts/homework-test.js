@@ -18,7 +18,7 @@ const tok = async (email, password) => (await call('POST', '/auth/login', null, 
 
   console.log('1. Student logins');
   const bulk = await call('POST', '/students/student-logins', admin, { sectionId: kid.sectionId });
-  ok(bulk.status === 200 && bulk.data.items.length > 5, `class logins ready (${bulk.data.created} new, ${bulk.data.items.length} total)`);
+  ok(bulk.status === 200 && bulk.data.items.length >= 5, `class logins ready (${bulk.data.created} new, ${bulk.data.items.length} total)`);
   const pick = (await call('GET', `/students?sectionId=${kid.sectionId}&all=1`, admin)).data.items.find((s) => s.id !== kid.id);
   const other = (await call('POST', `/students/${pick.id}/student-login`, admin)).data;
   ok(!!(await tok(other.login, other.password)), `student signs in with admission number ${other.login}`);

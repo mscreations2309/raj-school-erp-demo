@@ -16,7 +16,9 @@ const tok = async (email, password) => (await call('POST', '/auth/login', null, 
   const ss = (await call('GET', '/section-subjects?all=1', admin)).data.items.filter((x) => x.teacherId);
   const byTeacher = {};
   ss.forEach((x) => (byTeacher[x.teacherId] ||= []).push(x));
-  const [tA, tB] = Object.keys(byTeacher).filter((id) => byTeacher[id].length >= 2).slice(0, 2);
+  // teachers who teach some (not all) sections, fewest first
+  const nSec = (id) => new Set(byTeacher[id].map((x) => x.sectionId)).size;
+  const [tA, tB] = Object.keys(byTeacher).filter((id) => byTeacher[id].length >= 2).sort((a, b) => nSec(a) - nSec(b)).slice(0, 2);
   const lA = (await call('POST', `/staff/${tA}/login`, admin, { role: 'TEACHER', password: 'Scope@123' })).data;
   const lB = (await call('POST', `/staff/${tB}/login`, admin, { role: 'TEACHER', password: 'Scope@123' })).data;
   const A = await tok(lA.email, 'Scope@123');
