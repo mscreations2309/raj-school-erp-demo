@@ -6,13 +6,15 @@ import { prisma } from './prisma.js';
 
 export const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
 
+export const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 50;
+
 const ALLOWED = /\.(png|jpe?g|webp|gif|pdf|svg|xlsx?|csv|docx?)$/i;
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.pdf': 'application/pdf' };
 
 // Files are kept in memory, then saved either to the database (FILE_STORAGE=db) or to local disk.
 export const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024, files: 10 },
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024, files: 10 },
   fileFilter(_req, file, cb) {
     if (!ALLOWED.test(file.originalname)) return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'Unsupported file type'));
     cb(null, true);

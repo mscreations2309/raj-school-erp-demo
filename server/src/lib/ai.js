@@ -96,9 +96,14 @@ export async function evaluateSubmission({ homework, student, submission }) {
   const files = JSON.parse(submission.files || '[]');
   const content = [];
   let attached = 0;
+  let sentBytes = 0;
+  const skipped = [];
   for (const f of files) {
     const data = await loadFile(f.url);
     if (!data) continue;
+    // AI services accept ~20 MB per request; larger files are left for the teacher to check by hand
+    if (sentBytes + data.buffer.length > 18 * 1024 * 1024) { skipped.push(f.name); continue; }
+    sentBytes += data.buffer.length;
     if (data.mime === 'application/pdf') {
       content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: data.buffer.toString('base64') } });
       attached++;
@@ -116,6 +121,7 @@ export async function evaluateSubmission({ homework, student, submission }) {
     `Answer key / marking scheme from the teacher: ${homework.answerKey || '(not provided — use your subject knowledge)'}`,
     `Student's typed answer: ${submission.text?.trim() || '(none)'}`,
     `Attached pages of the student's work: ${attached}${attached ? ' (shown above)' : ''}`,
+    ...(skipped.length ? [`NOT attached (too large for AI): ${skipped.join(', ')} — say in teacherNotes that the teacher must check these files manually.`] : []),
   ].join('\n');
   content.push({ type: 'text', text: `${brief}\n\nEvaluate this homework submission.` });
 

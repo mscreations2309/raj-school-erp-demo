@@ -24,7 +24,10 @@ export function errorHandler(err, req, res, _next) {
   if (err?.name === 'ZodError') {
     return res.status(400).json({ error: 'Validation failed', details: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
   }
-  if (err?.name === 'MulterError') return res.status(400).json({ error: err.message });
+  if (err?.name === 'MulterError') {
+    const msg = err.code === 'LIMIT_FILE_SIZE' ? `File too large — maximum ${Number(process.env.MAX_UPLOAD_MB) || 50} MB per file` : err.code === 'LIMIT_FILE_COUNT' ? 'Too many files in one upload' : err.message;
+    return res.status(400).json({ error: msg });
+  }
 
   const status = err.status || 500;
   if (status >= 500) console.error(err);

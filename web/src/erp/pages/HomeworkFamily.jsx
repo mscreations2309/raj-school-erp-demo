@@ -35,6 +35,8 @@ export default function HomeworkFamily({ studentId }) {
   const [filter, setFilter] = useState('ALL');
 
   const submit = async () => {
+    const big = files.find((f) => f.size > 50 * 1024 * 1024);
+    if (big) return toast.error(`${big.name} is larger than 50 MB — please compress it or upload fewer pages`);
     setBusy(true);
     try {
       const fd = new FormData();
@@ -122,7 +124,7 @@ export default function HomeworkFamily({ studentId }) {
             {submitFor.overdue && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">The due date has passed — this will be marked as a late submission.</p>}
             <Field label="Your answer (optional)"><textarea className="input" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type your answer here…" /></Field>
             <label className="flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-brand-400">
-              <Upload className="text-brand-600" /><span className="mt-2 text-sm font-semibold">Upload photos / PDF of your work</span><span className="text-xs text-slate-500">Up to 6 files, 5 MB each (JPG, PNG, PDF)</span>
+              <Upload className="text-brand-600" /><span className="mt-2 text-sm font-semibold">Upload photos / PDF of your work</span><span className="text-xs text-slate-500">Up to 6 files, 50 MB each (JPG, PNG, PDF)</span>
               <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.pdf" capture="environment" className="hidden" onChange={(e) => setFiles([...files, ...Array.from(e.target.files)].slice(0, 6))} />
             </label>
             {files.map((f, k) => <div key={k} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"><span className="flex items-center gap-2"><FileText size={14} /> {f.name} <span className="text-xs text-slate-400">{(f.size / 1024).toFixed(0)} KB</span></span><button onClick={() => setFiles(files.filter((_, i) => i !== k))}><X size={15} className="text-slate-400" /></button></div>)}
