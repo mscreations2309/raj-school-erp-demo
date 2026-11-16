@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import { provisionSchool, currentSessionDates } from '../src/lib/provision.js';
 import * as C from './seed-content.js';
+import { planProfileData } from './seed-profile-plan.js';
 
 const prisma = new PrismaClient();
 const IMG = C.IMG;
@@ -261,6 +262,22 @@ async function main() {
   await prisma.student.update({ where: { id: demoKid.id }, data: { userId: studentLoginUser.id } });
   await prisma.user.update({ where: { id: studentLoginUser.id }, data: { name: `${demoKid.firstName} ${demoKid.lastName}` } });
   console.log(`  ✔ ${students.length} students, ${staff.length + teachers.length} staff`);
+
+  // ───────────────── Houses, student roles (Head Boy/Girl, captains, monitors) & activity groups (NCC, Scouts…)
+  const plan = planProfileData(students, [...staff, ...teachers], { keepStudentId: demoKid.id });
+  for (const h of ['Red', 'Blue', 'Green', 'Yellow']) {
+    await prisma.student.updateMany({ where: { id: { in: students.filter((s) => plan.houses[s.id] === h).map((s) => s.id) } }, data: { house: h } });
+  }
+  const tagTypes = Object.fromEntries((await prisma.studentTagType.findMany({ where: { schoolId } })).map((t) => [t.name, t]));
+  for (const [name, staffId] of Object.entries(plan.incharge)) if (staffId && tagTypes[name]) await prisma.studentTagType.update({ where: { id: tagTypes[name].id }, data: { inchargeStaffId: staffId } });
+  const principalUser = await prisma.user.findFirst({ where: { schoolId, role: 'PRINCIPAL' } });
+  await prisma.studentTag.createMany({
+    data: plan.tags.filter((t) => tagTypes[t.typeName]).map((t) => ({
+      schoolId, studentId: t.studentId, typeId: tagTypes[t.typeName].id, house: t.house || null, session: session.name,
+      fromDate: session.startDate, assignedById: principalUser?.id, assignedByName: principalUser?.name || 'Principal',
+    })),
+  });
+  console.log(`  ✔ houses for all students, ${plan.tags.length} roles & activity tags`);
 
   // ───────────────── Events / holidays / calendar
   const Y = session.startDate.getUTCFullYear();
